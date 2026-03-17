@@ -45,9 +45,30 @@ import {
   useFlightRisk,
 } from './hooks/use-airport-now-data';
 
+const SELECTED_AIRPORT_STORAGE_KEY = 'airport-now:selected-airport';
+
+function getInitialSelectedAirportCode(): AirportCode {
+  if (typeof window === 'undefined') {
+    return 'ATL';
+  }
+
+  const storedCode = window.localStorage.getItem(SELECTED_AIRPORT_STORAGE_KEY)?.toUpperCase();
+  const matchedAirport = storedCode ? fallbackAirports.find((airport) => airport.code === storedCode) : null;
+
+  return matchedAirport?.code ?? 'ATL';
+}
+
 function App() {
   const { airports, mode, error, refresh } = useAirportSnapshot();
-  const [selectedCode, setSelectedCode] = useState<AirportCode>('ATL');
+  const initialSelectedCode = getInitialSelectedAirportCode();
+  const initialSelectedAirport = findAirportByCode(fallbackAirports, initialSelectedCode);
+  const initialFlightForm: FlightFormState = {
+    origin: initialSelectedCode,
+    destination: getSuggestedDestination(initialSelectedCode),
+    departureLocalTime: getDefaultDepartureLocalTime(initialSelectedCode),
+  };
+
+  const [selectedCode, setSelectedCode] = useState<AirportCode>(initialSelectedCode);
   const [trafficClock, setTrafficClock] = useState<number>(() => Date.now());
   const [hoveredTrafficAircraftId, setHoveredTrafficAircraftId] = useState<string | null>(null);
   const [pinnedTrafficAircraftId, setPinnedTrafficAircraftId] = useState<string | null>(null);
@@ -56,17 +77,9 @@ function App() {
   const [reportSubmitMessage, setReportSubmitMessage] = useState<string | null>(null);
   const [airportSwitcherCanScrollLeft, setAirportSwitcherCanScrollLeft] = useState(false);
   const [airportSwitcherCanScrollRight, setAirportSwitcherCanScrollRight] = useState(false);
-  const [flightForm, setFlightForm] = useState<FlightFormState>(() => ({
-    origin: 'ATL',
-    destination: 'LAX',
-    departureLocalTime: getDefaultDepartureLocalTime('ATL'),
-  }));
-  const [flightQuery, setFlightQuery] = useState<FlightFormState>(() => ({
-    origin: 'ATL',
-    destination: 'LAX',
-    departureLocalTime: getDefaultDepartureLocalTime('ATL'),
-  }));
-  const [reportForm, setReportForm] = useState<ReportFormState>(() => buildInitialReportForm(fallbackAirports[0]));
+  const [flightForm, setFlightForm] = useState<FlightFormState>(initialFlightForm);
+  const [flightQuery, setFlightQuery] = useState<FlightFormState>(initialFlightForm);
+  const [reportForm, setReportForm] = useState<ReportFormState>(() => buildInitialReportForm(initialSelectedAirport));
   const airportSwitcherRailRef = useRef<HTMLDivElement | null>(null);
   const reportCameraInputRef = useRef<HTMLInputElement | null>(null);
   const reportUploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -290,6 +303,10 @@ function App() {
 
   useEffect(() => {
     setSelectedBoardFocus(null);
+  }, [selectedCode]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SELECTED_AIRPORT_STORAGE_KEY, selectedCode);
   }, [selectedCode]);
 
   useEffect(() => {
