@@ -64,7 +64,7 @@ async function loadReportsFromBlob(): Promise<AirportReport[]> {
     }
 
     const blobUrl = new URL(REPORTS_BLOB_PATH, `${blobStoreBaseUrl}/`);
-    blobUrl.searchParams.set('cache', '0');
+    blobUrl.searchParams.set('v', Date.now().toString());
     const response = await fetch(blobUrl, {
       headers: {
         'Cache-Control': 'no-cache',
