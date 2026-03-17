@@ -125,6 +125,43 @@ a {
   max-width: 38rem;
 }
 
+.hero-intro-top {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hero-github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 243, 232, 0.12);
+  background: rgba(248, 243, 232, 0.04);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.hero-github-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(248, 243, 232, 0.22);
+  background: rgba(248, 243, 232, 0.08);
+}
+
+.hero-github-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
 .selected-airport-strip {
   position: relative;
   z-index: 1;
@@ -2297,6 +2334,10 @@ a {
     max-width: none;
   }
 
+  .hero-intro-top {
+    justify-content: flex-start;
+  }
+
   .airspace-panel-summary {
     flex-direction: column;
     align-items: flex-start;
@@ -2424,6 +2465,11 @@ a {
 
   .report-photo-actions {
     grid-template-columns: 1fr;
+  }
+
+  .hero-github-link {
+    width: 100%;
+    justify-content: center;
   }
 
   .report-submit-row {
