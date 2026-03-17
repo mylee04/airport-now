@@ -3,7 +3,6 @@ import type { AirportCode } from '../../shared/airport-status';
 import { createAirportReport } from './lib/airport-api';
 import {
   AirspacePanel,
-  AirportPickerPanel,
   CheckpointDetailPanel,
   CommunityPanel,
   ConcourseBoardPanel,
@@ -149,8 +148,12 @@ function App() {
     [activeTrafficAircraft, flightBoards],
   );
   const selectedStatusMetrics = useMemo(
-    () => buildStatusMetrics(selectedAirport, selectedCoverageTier, selectedAirportTrafficSummary),
-    [selectedAirport, selectedCoverageTier, selectedAirportTrafficSummary],
+    () =>
+      buildStatusMetrics(selectedAirport, selectedCoverageTier, selectedAirportTrafficSummary, {
+        reports: reports.length,
+        photos: reports.filter((report) => Boolean(report.photoUrl)).length,
+      }),
+    [reports, selectedAirport, selectedCoverageTier, selectedAirportTrafficSummary],
   );
   const routeLabel = buildRouteLabel(flightRisk, flightForm);
 
@@ -375,13 +378,6 @@ function App() {
       />
 
       <SelectedAirportStrip selectedAirport={selectedAirport} selectedCoverageTier={selectedCoverageTier} />
-
-      <AirportPickerPanel
-        airports={airports}
-        selectedCode={selectedCode}
-        selectedCoverageTier={selectedCoverageTier}
-        onSelectAirport={selectAirport}
-      />
 
       <CommunityPanel
         selectedAirport={selectedAirport}

@@ -1,4 +1,4 @@
-import type { Dispatch, FormEvent, RefObject, SetStateAction } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import type { AirportCode, AirportStatus } from '../../../shared/airport-status';
 import {
   REPORT_CROWD_LEVELS,
@@ -78,13 +78,6 @@ type CommunityPanelProps = {
   reportUploadInputRef: RefObject<HTMLInputElement | null>;
   setSelectedReportPhoto: (photo: File | null) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
-};
-
-type AirportPickerPanelProps = {
-  airports: AirportStatus[];
-  selectedCode: AirportCode;
-  selectedCoverageTier: AirportCoverageTier;
-  onSelectAirport: (code: AirportCode) => void;
 };
 
 type ConcourseBoardPanelProps = {
@@ -179,9 +172,9 @@ export function HeroHeader({
           </div>
         </div>
 
-        <div className="hero-switcher">
+        <div className="hero-switcher" id="airport-picker">
           <div className="airport-switcher-head">
-            <p className="panel-label">Departure airport tabs</p>
+            <p className="panel-label">Select departure airport</p>
             <div className="airport-switcher-controls" aria-label="Airport tab scroll controls">
               <button
                 type="button"
@@ -321,6 +314,124 @@ export function CommunityPanel({
   setSelectedReportPhoto,
   onSubmit,
 }: CommunityPanelProps) {
+  const [communityView, setCommunityView] = useState<'auto' | 'feed' | 'photos'>('auto');
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraState, setCameraState] = useState<'idle' | 'opening' | 'ready' | 'error'>('idle');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [reportPhotoPreviewUrl, setReportPhotoPreviewUrl] = useState<string | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const photoReports = reports.filter((report) => Boolean(report.photoUrl));
+  const resolvedCommunityView = communityView === 'auto' ? (photoReports.length > 0 ? 'photos' : 'feed') : communityView;
+
+  const stopCameraStream = () => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+  };
+
+  const closeCamera = () => {
+    stopCameraStream();
+    setCameraOpen(false);
+    setCameraState('idle');
+    setCameraError(null);
+  };
+
+  const openCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      reportCameraInputRef.current?.click();
+      return;
+    }
+
+    stopCameraStream();
+    setCameraOpen(true);
+    setCameraState('opening');
+    setCameraError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+        },
+        audio: false,
+      });
+
+      cameraStreamRef.current = stream;
+      setCameraState('ready');
+
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        await cameraVideoRef.current.play().catch(() => undefined);
+      }
+    } catch {
+      setCameraState('error');
+      setCameraError('Camera access is blocked right now. Use Upload photo instead.');
+      stopCameraStream();
+    }
+  };
+
+  const capturePhoto = () => {
+    const video = cameraVideoRef.current;
+
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+      setCameraError('The camera is still warming up. Try capture again in a second.');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      setCameraError('This browser could not capture the photo.');
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setCameraError('The photo could not be saved. Try again.');
+          return;
+        }
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        setSelectedReportPhoto(
+          new File([blob], `${selectedAirport.code.toLowerCase()}-checkpoint-${timestamp}.jpg`, {
+            type: 'image/jpeg',
+          }),
+        );
+        closeCamera();
+      },
+      'image/jpeg',
+      0.92,
+    );
+  };
+
+  useEffect(() => {
+    setCommunityView('auto');
+  }, [selectedAirport.code]);
+
+  useEffect(() => {
+    if (!reportForm.photo) {
+      setReportPhotoPreviewUrl(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(reportForm.photo);
+    setReportPhotoPreviewUrl(previewUrl);
+
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [reportForm.photo]);
+
+  useEffect(() => () => stopCameraStream(), []);
+
   return (
     <section className="info-panel community-priority-panel" id="community-reports">
       <div className="community-priority-head">
@@ -330,8 +441,8 @@ export function CommunityPanel({
         </div>
         <div className="community-priority-meta">
           <span>{selectedAirport.code}</span>
-          <span>{selectedAirport.reports} reports</span>
-          <span>{selectedAirport.photos} photos</span>
+          <span>{reports.length} reports</span>
+          <span>{photoReports.length} photos</span>
         </div>
       </div>
 
@@ -339,6 +450,63 @@ export function CommunityPanel({
         Reports and photos are stored on the Airport Now API for this airport feed, shown to other travelers here, and
         auto-delete after {REPORT_TTL_HOURS} hours.
       </p>
+
+      {cameraOpen ? (
+        <div className="camera-modal-backdrop" role="presentation" onClick={closeCamera}>
+          <div
+            className="camera-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${selectedAirport.code}-camera-heading`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="camera-modal-head">
+              <div>
+                <p className="panel-label">Live camera</p>
+                <h3 id={`${selectedAirport.code}-camera-heading`}>Capture the checkpoint line</h3>
+              </div>
+              <button type="button" className="camera-close-button" onClick={closeCamera} aria-label="Close camera">
+                Close
+              </button>
+            </div>
+
+            <div className="camera-preview-shell">
+              {cameraState === 'ready' ? (
+                <video ref={cameraVideoRef} className="camera-preview" autoPlay muted playsInline />
+              ) : (
+                <div className="camera-preview-placeholder">
+                  <strong>{cameraState === 'opening' ? 'Opening camera...' : 'Camera unavailable'}</strong>
+                  <p>
+                    {cameraError ??
+                      'Allow camera access in the browser prompt, then point at the checkpoint line and capture one frame.'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="camera-modal-actions">
+              <button
+                type="button"
+                className="secondary-button report-photo-button"
+                onClick={() => {
+                  closeCamera();
+                  reportUploadInputRef.current?.click();
+                }}
+              >
+                Use upload instead
+              </button>
+              <button
+                type="button"
+                className="primary-button report-photo-button"
+                onClick={capturePhoto}
+                disabled={cameraState !== 'ready'}
+              >
+                Capture photo
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <form className="report-form" onSubmit={onSubmit}>
         <div className="report-form-row">
@@ -445,7 +613,9 @@ export function CommunityPanel({
               <button
                 type="button"
                 className="secondary-button report-photo-button"
-                onClick={() => reportCameraInputRef.current?.click()}
+                onClick={() => {
+                  void openCamera();
+                }}
               >
                 Take photo
               </button>
@@ -457,9 +627,25 @@ export function CommunityPanel({
                 Upload photo
               </button>
             </div>
-            <small className="field-hint">On mobile, Take photo opens the camera directly.</small>
+            <small className="field-hint">Take photo opens the live camera. Upload photo keeps the file picker.</small>
           </div>
         </div>
+
+        {reportPhotoPreviewUrl ? (
+          <div className="report-selected-photo">
+            <img src={reportPhotoPreviewUrl} alt={`${selectedAirport.code} report preview`} />
+            <div className="report-selected-photo-copy">
+              <strong>{reportForm.photo?.name ?? 'Photo ready'}</strong>
+              <p>
+                This photo will post into the {selectedAirport.code} community feed and disappear after {REPORT_TTL_HOURS}{' '}
+                hours.
+              </p>
+              <button type="button" className="report-clear-photo" onClick={() => setSelectedReportPhoto(null)}>
+                Remove photo
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <label className="flight-field">
           <span>One-line note</span>
@@ -489,84 +675,101 @@ export function CommunityPanel({
 
       {reportsMode === 'error' ? <p className="error-banner">{reportsError}</p> : null}
 
-      <div className="report-list-grid">
-        {reports.length > 0 ? (
-          reports.map((report) => {
-            const imageUrl = resolveApiAssetUrl(report.photoUrl);
-
-            return (
-              <article key={report.id} className="report-card">
-                <div className="report-card-head">
-                  <div>
-                    <strong>{report.checkpoint}</strong>
-                    <p>{formatReportLifetime(report.createdAt, report.expiresAt)}</p>
-                  </div>
-                  <div className="source-list">
-                    <span className="source-chip">{report.queueLength}</span>
-                    <span className="source-chip">{report.crowdLevel}</span>
-                  </div>
-                </div>
-
-                {report.note ? <p className="card-note">{report.note}</p> : null}
-
-                {imageUrl ? (
-                  <img
-                    className="report-photo"
-                    src={imageUrl}
-                    alt={`${report.airportCode} traveler report from ${report.checkpoint}`}
-                  />
-                ) : null}
-              </article>
-            );
-          })
-        ) : (
-          <p className="empty-state">
-            No traveler reports yet for {selectedAirport.code}. The first post will stay live here for {REPORT_TTL_HOURS}{' '}
-            hours, then auto-delete.
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-export function AirportPickerPanel({
-  airports,
-  selectedCode,
-  selectedCoverageTier,
-  onSelectAirport,
-}: AirportPickerPanelProps) {
-  return (
-    <section className="dashboard-panel airport-picker-panel" id="airport-picker">
-      <div className="focus-panel-head">
-        <div>
-          <p className="panel-label">Your airport</p>
-          <h3>Select departure airport</h3>
-        </div>
-        <span className={`source-chip source-chip-tier source-chip-tier-${selectedCoverageTier}`}>
-          {formatCoverageTierLabel(selectedCoverageTier)}
-        </span>
-      </div>
-
-      <p className="detail-insight">
-        Choose one airport here first. The rest of the page stays pinned to that airport instead of asking people to
-        browse a nationwide view.
-      </p>
-
-      <label className="flight-field">
-        <span>Departure airport</span>
-        <select
-          className="field-control"
-          value={selectedCode}
-          onChange={(event) => onSelectAirport(event.target.value as AirportCode)}
+      <div className="community-view-toggle" role="tablist" aria-label={`${selectedAirport.code} community views`}>
+        <button
+          type="button"
+          className={`community-view-chip ${resolvedCommunityView === 'photos' ? 'community-view-chip-active' : ''}`}
+          onClick={() => setCommunityView('photos')}
+          aria-pressed={resolvedCommunityView === 'photos'}
         >
-          {airports.map((airport) => (
-            <option key={airport.code} value={airport.code}>
-              {airport.code} · {airport.city}
-            </option>
-          ))}
-        </select>
-      </label>
+          Photo wall <span>{photoReports.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`community-view-chip ${resolvedCommunityView === 'feed' ? 'community-view-chip-active' : ''}`}
+          onClick={() => setCommunityView('feed')}
+          aria-pressed={resolvedCommunityView === 'feed'}
+        >
+          Report feed <span>{reports.length}</span>
+        </button>
+      </div>
+
+      {resolvedCommunityView === 'photos' ? (
+        <div className="photo-wall-grid">
+          {photoReports.length > 0 ? (
+            photoReports.map((report) => {
+              const imageUrl = resolveApiAssetUrl(report.photoUrl);
+
+              if (!imageUrl) {
+                return null;
+              }
+
+              return (
+                <article key={report.id} className="photo-wall-card">
+                  <img
+                    className="photo-wall-image"
+                    src={imageUrl}
+                    alt={`${report.airportCode} traveler photo from ${report.checkpoint}`}
+                  />
+                  <div className="photo-wall-copy">
+                    <div className="photo-wall-head">
+                      <strong>{report.checkpoint}</strong>
+                      <span>{formatReportLifetime(report.createdAt, report.expiresAt)}</span>
+                    </div>
+                    <p className="photo-wall-meta">
+                      {report.queueLength} · {report.crowdLevel}
+                    </p>
+                    {report.note ? <p className="photo-wall-note">{report.note}</p> : null}
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <p className="empty-state">
+              No checkpoint photos have been posted for {selectedAirport.code} yet. The first photo will appear here for{' '}
+              {REPORT_TTL_HOURS} hours.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="report-list-grid">
+          {reports.length > 0 ? (
+            reports.map((report) => {
+              const imageUrl = resolveApiAssetUrl(report.photoUrl);
+
+              return (
+                <article key={report.id} className="report-card">
+                  <div className="report-card-head">
+                    <div>
+                      <strong>{report.checkpoint}</strong>
+                      <p>{formatReportLifetime(report.createdAt, report.expiresAt)}</p>
+                    </div>
+                    <div className="source-list">
+                      <span className="source-chip">{report.queueLength}</span>
+                      <span className="source-chip">{report.crowdLevel}</span>
+                    </div>
+                  </div>
+
+                  {report.note ? <p className="card-note">{report.note}</p> : null}
+
+                  {imageUrl ? (
+                    <img
+                      className="report-photo"
+                      src={imageUrl}
+                      alt={`${report.airportCode} traveler report from ${report.checkpoint}`}
+                    />
+                  ) : null}
+                </article>
+              );
+            })
+          ) : (
+            <p className="empty-state">
+              No traveler reports yet for {selectedAirport.code}. The first post will stay live here for {REPORT_TTL_HOURS}{' '}
+              hours, then auto-delete.
+            </p>
+          )}
+        </div>
+      )}
     </section>
   );
 }

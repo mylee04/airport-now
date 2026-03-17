@@ -13,6 +13,48 @@
   width: 100%;
 }
 
+.report-selected-photo {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 14px;
+  border-radius: 20px;
+  background: rgba(248, 243, 232, 0.04);
+  border: 1px solid rgba(248, 243, 232, 0.08);
+}
+
+.report-selected-photo img {
+  width: 100%;
+  height: 124px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid rgba(248, 243, 232, 0.08);
+}
+
+.report-selected-photo-copy {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.report-selected-photo-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.report-clear-photo {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .report-textarea {
   min-height: 100px;
   resize: vertical;
@@ -48,4 +90,187 @@
   background: rgba(134, 203, 146, 0.14);
   border: 1px solid rgba(134, 203, 146, 0.22);
   color: #d8f4dd;
+}
+
+.community-view-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.community-view-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 243, 232, 0.12);
+  background: rgba(248, 243, 232, 0.04);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.community-view-chip span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(248, 243, 232, 0.08);
+  color: var(--text);
+}
+
+.community-view-chip-active {
+  border-color: rgba(255, 107, 61, 0.5);
+  background: rgba(255, 107, 61, 0.14);
+  color: var(--text);
+}
+
+.photo-wall-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.photo-wall-card {
+  overflow: hidden;
+  border-radius: 22px;
+  background: rgba(248, 243, 232, 0.04);
+  border: 1px solid rgba(248, 243, 232, 0.08);
+}
+
+.photo-wall-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-wall-copy {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.photo-wall-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.photo-wall-head span,
+.photo-wall-meta,
+.photo-wall-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.camera-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 10, 17, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.camera-modal {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 28px;
+  background: rgba(9, 15, 26, 0.96);
+  border: 1px solid rgba(248, 243, 232, 0.12);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+}
+
+.camera-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.camera-modal-head h3 {
+  margin: 4px 0 0;
+}
+
+.camera-close-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 243, 232, 0.14);
+  background: rgba(248, 243, 232, 0.04);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.camera-preview-shell {
+  overflow: hidden;
+  border-radius: 22px;
+  background: rgba(248, 243, 232, 0.03);
+  border: 1px solid rgba(248, 243, 232, 0.08);
+}
+
+.camera-preview {
+  width: 100%;
+  max-height: min(68vh, 560px);
+  display: block;
+  object-fit: cover;
+  background: #05080d;
+}
+
+.camera-preview-placeholder {
+  display: grid;
+  gap: 8px;
+  padding: 36px 24px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.camera-preview-placeholder p {
+  margin: 0;
+}
+
+.camera-modal-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .photo-wall-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .report-selected-photo,
+  .camera-modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .camera-modal {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .camera-modal-head,
+  .photo-wall-head {
+    flex-direction: column;
+  }
 }

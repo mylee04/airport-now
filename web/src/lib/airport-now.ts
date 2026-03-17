@@ -856,7 +856,13 @@ export function buildStatusMetrics(
   selectedAirport: AirportStatus,
   selectedCoverageTier: AirportCoverageTier,
   selectedAirportTrafficSummary: string,
+  communitySummary?: { reports: number; photos: number },
 ): StatusMetric[] {
+  const liveCommunitySummary = communitySummary ?? {
+    reports: selectedAirport.reports,
+    photos: selectedAirport.photos,
+  };
+
   return [
     {
       label: 'Coverage',
@@ -879,7 +885,7 @@ export function buildStatusMetrics(
     },
     {
       label: 'Community',
-      value: `${selectedAirport.reports} reports · ${selectedAirport.photos} photos`,
+      value: `${liveCommunitySummary.reports} reports · ${liveCommunitySummary.photos} photos`,
     },
     {
       label: 'Nearby traffic',
