@@ -1,4 +1,4 @@
-import type { AirportCheckpoint } from '../../../shared/airport-status';
+import type { AirportCheckpoint, CheckpointStatus } from '../../../shared/airport-status';
 
 type MspWaitSnapshot = {
   fetchedAt: string;
@@ -54,12 +54,13 @@ export async function fetchMspWaitSnapshot(): Promise<MspWaitSnapshot> {
     const message = match[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     const displayWait = match[3].trim();
     const waitMinutes = waitTextToMinutes(displayWait);
+    const status: CheckpointStatus = message.toLowerCase().includes('precheck') ? 'PreCheck Only' : 'Open';
 
     return {
       id: `msp-${index + 1}`,
       name,
       terminal: name.startsWith('T1') ? 'Terminal 1' : 'Terminal 2',
-      status: message.toLowerCase().includes('precheck') ? 'PreCheck Only' : 'Open',
+      status,
       waitMinutes,
       displayWait,
       message,

@@ -67,10 +67,10 @@ export async function savePhoto(file: File): Promise<{ photoUrl: string; photoFi
   const storedName = `${crypto.randomUUID()}.${extension}`;
   const fileUrl = new URL(storedName, UPLOADS_DIR);
 
-  await Bun.write(fileUrl, await file.arrayBuffer());
+  writeFileSync(fileUrl, Buffer.from(await file.arrayBuffer()));
 
   return {
-    photoUrl: `/uploads/${storedName}`,
+    photoUrl: `/api/uploads?file=${encodeURIComponent(storedName)}`,
     photoFilename: originalName,
   };
 }

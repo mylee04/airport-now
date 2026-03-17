@@ -23,8 +23,12 @@ export type PersistedReportsFile = {
   reports: AirportReport[];
 };
 
-export const UPLOADS_DIR = new URL('../../../uploads/', import.meta.url);
-export const DATA_DIR = new URL('../../../data/', import.meta.url);
+const STORAGE_ROOT_URL = process.env.VERCEL
+  ? new URL('file:///tmp/airport-now/')
+  : new URL('../../../', import.meta.url);
+
+export const UPLOADS_DIR = new URL('uploads/', STORAGE_ROOT_URL);
+export const DATA_DIR = new URL('data/', STORAGE_ROOT_URL);
 export const REPORTS_STORE_FILE = new URL('reports.json', DATA_DIR);
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 export const CLEANUP_INTERVAL_MS = 60_000;
@@ -129,10 +133,16 @@ export function normalizeStoredReport(value: unknown): AirportReport | null {
 }
 
 export function getUploadFilename(photoUrl: string | null): string | null {
-  if (!photoUrl?.startsWith('/uploads/')) {
-    return null;
+  if (photoUrl?.startsWith('/uploads/')) {
+    const filename = photoUrl.slice('/uploads/'.length);
+    return /^[a-zA-Z0-9._-]+$/.test(filename) ? filename : null;
   }
 
-  const filename = photoUrl.slice('/uploads/'.length);
-  return /^[a-zA-Z0-9._-]+$/.test(filename) ? filename : null;
+  if (photoUrl?.startsWith('/api/uploads?')) {
+    const url = new URL(photoUrl, 'http://localhost');
+    const filename = url.searchParams.get('file');
+    return filename && /^[a-zA-Z0-9._-]+$/.test(filename) ? filename : null;
+  }
+
+  return null;
 }

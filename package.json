@@ -3,12 +3,16 @@
   "private": true,
   "workspaces": [
     "web",
-    "api"
+    "backend"
   ],
   "scripts": {
     "dev:web": "bun run --cwd web dev",
-    "dev:api": "bun run --cwd api dev",
+    "dev:api": "bun run --cwd backend dev",
     "build:web": "bun run --cwd web build",
-    "build:api": "bun run --cwd api build"
+    "build:api": "bun run --cwd backend build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "typescript": "^5.9.3"
   }
 }

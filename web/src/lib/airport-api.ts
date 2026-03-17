@@ -5,7 +5,23 @@ import type { AirportCode } from '../../../shared/airport-status';
 import type { AirportReportsApiResponse } from '../../../shared/report';
 import type { TrafficApiResponse } from '../../../shared/traffic';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787';
+function resolveApiBaseUrl(): string {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  if (typeof window !== 'undefined') {
+    const { hostname } = window.location;
+
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return '';
+    }
+  }
+
+  return 'http://localhost:8787';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export async function fetchAirportSnapshot(signal?: AbortSignal): Promise<AirportsApiResponse> {
   const response = await fetch(`${API_BASE_URL}/api/airports`, { signal });

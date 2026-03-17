@@ -4,7 +4,8 @@ dist
 **/dist
 .DS_Store
 *.tsbuildinfo
-api/data/*
-!api/data/.gitkeep
-api/uploads/*
-!api/uploads/.gitkeep
+backend/data/*
+!backend/data/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
+.vercel
