@@ -27,7 +27,7 @@ export type FlightFormState = {
   destination: string;
   departureLocalTime: string;
 };
-export type AirportCoverageTier = 'official' | 'community' | 'advisory' | 'limited';
+export type AirportCoverageTier = 'official' | 'estimate' | 'community' | 'advisory' | 'limited';
 export type ReportFormState = {
   checkpoint: string;
   queueLength: ReportQueueLength;
@@ -473,6 +473,10 @@ export function formatWaitSourceLabel(source: AirportStatus['waitTimeSource']): 
     return 'official';
   }
 
+  if (source === 'official_estimate') {
+    return 'official estimate';
+  }
+
   if (source === 'community') {
     return 'community';
   }
@@ -497,6 +501,10 @@ export function getAirportCoverageTier(airport: AirportStatus): AirportCoverageT
     return 'official';
   }
 
+  if (airport.waitTimeSource === 'official_estimate') {
+    return 'estimate';
+  }
+
   if (airport.waitTimeSource === 'community') {
     return 'community';
   }
@@ -511,6 +519,10 @@ export function getAirportCoverageTier(airport: AirportStatus): AirportCoverageT
 export function formatCoverageTierLabel(tier: AirportCoverageTier): string {
   if (tier === 'official') {
     return 'Official live wait';
+  }
+
+  if (tier === 'estimate') {
+    return 'Official estimate';
   }
 
   if (tier === 'community') {

@@ -7,21 +7,35 @@ import {
   type AirportStatus,
 } from '../../../shared/airport-status';
 import { fetchAtlWaitSnapshot } from '../adapters/atl';
+import { fetchBnaWaitSnapshot } from '../adapters/bna';
 import { fetchBwiWaitSnapshot } from '../adapters/bwi';
+import { fetchChsWaitSnapshot } from '../adapters/chs';
 import { fetchCleWaitSnapshot } from '../adapters/cle';
 import { fetchCltWaitSnapshot } from '../adapters/clt';
+import { fetchCmhWaitSnapshot } from '../adapters/cmh';
+import { fetchCvgWaitSnapshot } from '../adapters/cvg';
 import { fetchDcaWaitSnapshot, fetchIadWaitSnapshot } from '../adapters/mwaa';
 import { fetchDenWaitSnapshot } from '../adapters/den';
 import { fetchDtwWaitSnapshot } from '../adapters/dtw';
 import { fetchDfwWaitSnapshot } from '../adapters/dfw';
+import { fetchEwrWaitSnapshot } from '../adapters/ewr';
 import { fetchFaaSnapshot } from '../adapters/faa';
+import { fetchIahWaitSnapshot } from '../adapters/iah';
+import { fetchHouWaitSnapshot } from '../adapters/hou';
+import { fetchJaxWaitSnapshot } from '../adapters/jax';
 import { fetchJfkWaitSnapshot } from '../adapters/jfk';
 import { fetchLaxWaitSnapshot } from '../adapters/lax';
+import { fetchMcoWaitSnapshot } from '../adapters/mco';
 import { fetchMiaWaitSnapshot } from '../adapters/mia';
 import { fetchMspWaitSnapshot } from '../adapters/msp';
+import { fetchOmaWaitSnapshot } from '../adapters/oma';
 import { fetchPdxWaitSnapshot } from '../adapters/pdx';
+import { fetchPhlWaitSnapshot } from '../adapters/phl';
 import { fetchPhxWaitSnapshot } from '../adapters/phx';
+import { fetchPitWaitSnapshot } from '../adapters/pit';
+import { fetchSatWaitSnapshot } from '../adapters/sat';
 import { fetchSlcWaitSnapshot } from '../adapters/slc';
+import { fetchStlWaitSnapshot } from '../adapters/stl';
 import { getRecentReportSummaryByAirport } from './report-store';
 import { getTravelPressure } from './travel-pressure';
 
@@ -32,7 +46,7 @@ type SnapshotCache = {
 
 type FaaAirportEvent = Awaited<ReturnType<typeof fetchFaaSnapshot>>['eventsByAirport'][AirportCode];
 type ReportSummary = Awaited<ReturnType<typeof getRecentReportSummaryByAirport>>[AirportCode];
-type OfficialWaitSnapshot = {
+type AirportWaitSnapshot = {
   fetchedAt: string;
   waitMinutes: number;
   waitDisplay: string;
@@ -40,9 +54,11 @@ type OfficialWaitSnapshot = {
 };
 
 let cache: SnapshotCache | null = null;
+let inFlightSnapshot: Promise<AirportsApiResponse> | null = null;
 const AIRPORT_INDEX = Object.fromEntries(
   AIRPORT_CODES.map((code, index) => [code, index]),
 ) as Record<AirportCode, number>;
+const STALE_OFFICIAL_WAIT_MS = 30 * 60_000;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -62,6 +78,42 @@ function formatDerivedWaitDisplay(waitMinutes: number): string {
   }
 
   return `${waitMinutes} min`;
+}
+
+function getReusableOfficialWait(
+  previousSnapshot: AirportsApiResponse | null,
+  airportCode: AirportCode,
+  now: number,
+): AirportStatus | null {
+  const previous = previousSnapshot?.airports.find((airport) => airport.code === airportCode);
+  if (!previous) {
+    return null;
+  }
+
+  if (previous.waitTimeSource !== 'official' && previous.waitTimeSource !== 'official_estimate') {
+    return null;
+  }
+
+  const updatedAt = new Date(previous.updatedAt).getTime();
+  if (!Number.isFinite(updatedAt) || now - updatedAt > STALE_OFFICIAL_WAIT_MS) {
+    return null;
+  }
+
+  return previous;
+}
+
+function reuseStaleOfficialWait(
+  airports: AirportStatus[],
+  previousSnapshot: AirportsApiResponse | null,
+  airportCode: AirportCode,
+  now: number,
+): AirportStatus[] {
+  const staleAirport = getReusableOfficialWait(previousSnapshot, airportCode, now);
+  if (!staleAirport) {
+    return airports;
+  }
+
+  return airports.map((airport) => (airport.code === airportCode ? staleAirport : airport));
 }
 
 function mergeSentence(base: string, addition: string): string {
@@ -101,9 +153,21 @@ function buildRecommendation(status: AirportStatus): string {
     return `High disruption pressure at ${status.code}. Monitor airline alerts closely and leave extra time before departure.`;
   }
 
-  if (status.waitTimeSource === 'official' || status.waitTimeSource === 'community') {
+  if (
+    status.waitTimeSource === 'official' ||
+    status.waitTimeSource === 'official_estimate' ||
+    status.waitTimeSource === 'community'
+  ) {
     if (status.waitMinutes >= 25) {
+      if (status.waitTimeSource === 'official_estimate') {
+        return `Official checkpoint estimates are elevated at ${status.code}. Add extra buffer before you head to the airport.`;
+      }
+
       return `Checkpoint demand is elevated at ${status.code}. Add extra buffer before you head to the airport.`;
+    }
+
+    if (status.waitTimeSource === 'official_estimate') {
+      return `Official checkpoint estimates look manageable at ${status.code}, but keep watching for airport updates.`;
     }
 
     return `Current checkpoint pressure looks manageable at ${status.code}, but keep watching for airline updates.`;
@@ -130,7 +194,7 @@ function applyTravelPressureSignal(status: AirportStatus, generatedAt: string): 
 
 function applyOfficialWait(
   status: AirportStatus,
-  snapshot: OfficialWaitSnapshot,
+  snapshot: AirportWaitSnapshot,
   options: {
     dataSource: string;
     note: string;
@@ -159,6 +223,41 @@ function applyOfficialWait(
       waitTimeSource: 'official',
       delayRisk: Math.max(status.delayRisk, queueDelayRisk),
       cancelRisk: Math.max(status.cancelRisk, snapshot.waitMinutes >= 40 ? 2 : 0),
+    }),
+  };
+}
+
+function applyOfficialEstimateWait(
+  status: AirportStatus,
+  snapshot: AirportWaitSnapshot,
+  options: {
+    dataSource: string;
+    note: string;
+    insight: string;
+  },
+): AirportStatus {
+  const queueDelayRisk = derivedQueueDelayRisk(snapshot.waitMinutes);
+
+  return {
+    ...status,
+    waitMinutes: snapshot.waitMinutes,
+    waitDisplay: snapshot.waitDisplay,
+    waitTimeSource: 'official_estimate',
+    crowdLevel: getCrowdLevel(snapshot.waitMinutes),
+    confidence: 'Medium',
+    delayRisk: Math.max(status.delayRisk, queueDelayRisk),
+    cancelRisk: Math.max(status.cancelRisk, snapshot.waitMinutes >= 40 ? 1 : 0),
+    updatedAt: snapshot.fetchedAt,
+    checkpoints: snapshot.checkpoints,
+    dataSources: withUnique([...status.dataSources, options.dataSource]),
+    note: mergeSentence(options.note, snapshot.waitMinutes > 0 ? `Current top checkpoint estimate is ${snapshot.waitDisplay}.` : ''),
+    insight: options.insight,
+    recommendation: buildRecommendation({
+      ...status,
+      waitMinutes: snapshot.waitMinutes,
+      waitTimeSource: 'official_estimate',
+      delayRisk: Math.max(status.delayRisk, queueDelayRisk),
+      cancelRisk: Math.max(status.cancelRisk, snapshot.waitMinutes >= 40 ? 1 : 0),
     }),
   };
 }
@@ -315,15 +414,19 @@ function airportSortGroup(status: AirportStatus): number {
     return 0;
   }
 
-  if (status.waitTimeSource === 'community') {
+  if (status.waitTimeSource === 'official_estimate') {
     return 1;
   }
 
-  if (status.riskSource === 'live') {
+  if (status.waitTimeSource === 'community') {
     return 2;
   }
 
-  return 3;
+  if (status.riskSource === 'live') {
+    return 3;
+  }
+
+  return 4;
 }
 
 function sortAirports(airports: AirportStatus[]): AirportStatus[] {
@@ -369,60 +472,107 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
   if (cache && cache.expiresAt > now) {
     return cache.value;
   }
-
-  const generatedAt = new Date().toISOString();
-  let airports = buildSeedAirportStatuses(generatedAt).map((airport) => applyTravelPressureSignal(airport, generatedAt));
-
-  const [
-    faaResult,
-    atlResult,
-    denResult,
-    mspResult,
-    cltResult,
-    dfwResult,
-    dcaResult,
-    iadResult,
-    laxResult,
-    bwiResult,
-    miaResult,
-    phxResult,
-    pdxResult,
-    cleResult,
-    dtwResult,
-    jfkResult,
-    slcResult,
-  ] =
-    await Promise.allSettled([
-      fetchFaaSnapshot(),
-      fetchAtlWaitSnapshot(),
-      fetchDenWaitSnapshot(),
-      fetchMspWaitSnapshot(),
-      fetchCltWaitSnapshot(),
-      fetchDfwWaitSnapshot(),
-      fetchDcaWaitSnapshot(),
-      fetchIadWaitSnapshot(),
-      fetchLaxWaitSnapshot(),
-      fetchBwiWaitSnapshot(),
-      fetchMiaWaitSnapshot(),
-      fetchPhxWaitSnapshot(),
-      fetchPdxWaitSnapshot(),
-      fetchCleWaitSnapshot(),
-      fetchDtwWaitSnapshot(),
-      fetchJfkWaitSnapshot(),
-      fetchSlcWaitSnapshot(),
-    ]);
-
-  if (atlResult.status === 'fulfilled') {
-    airports = airports.map((airport) =>
-      airport.code === 'ATL'
-        ? applyOfficialWait(airport, atlResult.value, {
-            dataSource: 'ATL official security wait page',
-            note: 'Official ATL checkpoint data is live.',
-            insight: 'ATL wait data is being parsed from the official airport security wait page.',
-          })
-        : airport,
-    );
+  if (inFlightSnapshot) {
+    return inFlightSnapshot;
   }
+
+  const previousSnapshot = cache?.value ?? null;
+  const request = (async (): Promise<AirportsApiResponse> => {
+    const generatedAt = new Date().toISOString();
+    let airports = buildSeedAirportStatuses(generatedAt).map((airport) => applyTravelPressureSignal(airport, generatedAt));
+
+    const [
+      faaResult,
+      atlResult,
+      bnaResult,
+      denResult,
+      mspResult,
+      cltResult,
+      cmhResult,
+      cvgResult,
+      dfwResult,
+      dcaResult,
+      iadResult,
+      ewrResult,
+      iahResult,
+      laxResult,
+      mcoResult,
+      bwiResult,
+      miaResult,
+      phxResult,
+      pdxResult,
+      cleResult,
+      dtwResult,
+      jfkResult,
+      phlResult,
+      pitResult,
+      slcResult,
+      stlResult,
+      chsResult,
+      houResult,
+      jaxResult,
+      omaResult,
+      satResult,
+    ] =
+      await Promise.allSettled([
+        fetchFaaSnapshot(),
+        fetchAtlWaitSnapshot(),
+        fetchBnaWaitSnapshot(),
+        fetchDenWaitSnapshot(),
+        fetchMspWaitSnapshot(),
+        fetchCltWaitSnapshot(),
+        fetchCmhWaitSnapshot(),
+        fetchCvgWaitSnapshot(),
+        fetchDfwWaitSnapshot(),
+        fetchDcaWaitSnapshot(),
+        fetchIadWaitSnapshot(),
+        fetchEwrWaitSnapshot(),
+        fetchIahWaitSnapshot(),
+        fetchLaxWaitSnapshot(),
+        fetchMcoWaitSnapshot(),
+        fetchBwiWaitSnapshot(),
+        fetchMiaWaitSnapshot(),
+        fetchPhxWaitSnapshot(),
+        fetchPdxWaitSnapshot(),
+        fetchCleWaitSnapshot(),
+        fetchDtwWaitSnapshot(),
+        fetchJfkWaitSnapshot(),
+        fetchPhlWaitSnapshot(),
+        fetchPitWaitSnapshot(),
+        fetchSlcWaitSnapshot(),
+        fetchStlWaitSnapshot(),
+        fetchChsWaitSnapshot(),
+        fetchHouWaitSnapshot(),
+        fetchJaxWaitSnapshot(),
+        fetchOmaWaitSnapshot(),
+        fetchSatWaitSnapshot(),
+      ]);
+
+    if (atlResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'ATL'
+          ? applyOfficialWait(airport, atlResult.value, {
+              dataSource: 'ATL official security wait page',
+              note: 'Official ATL checkpoint data is live.',
+              insight: 'ATL wait data is being parsed from the official airport security wait page.',
+            })
+          : airport,
+      );
+    }
+
+    if (bnaResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'BNA'
+          ? applyOfficialWait(airport, bnaResult.value, {
+              dataSource: 'BNA official homepage wait card',
+              note: 'Official BNA security wait data is live.',
+              insight: 'BNA wait data is being parsed from the live TSA wait card rendered on the airport homepage.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'BNA', now);
+    }
 
   if (denResult.status === 'fulfilled') {
     airports = airports.map((airport) =>
@@ -448,7 +598,7 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
     );
   }
 
-  if (cltResult.status === 'fulfilled') {
+    if (cltResult.status === 'fulfilled') {
     airports = airports.map((airport) =>
       airport.code === 'CLT'
         ? applyOfficialWait(airport, cltResult.value, {
@@ -458,7 +608,35 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
           })
         : airport,
     );
-  }
+    }
+
+    if (cmhResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'CMH'
+          ? applyOfficialEstimateWait(airport, cmhResult.value, {
+              dataSource: 'CMH official security page estimate',
+              note: 'Official CMH checkpoint estimate is available.',
+              insight: 'CMH publishes a current airport-wide checkpoint estimate plus a same-day forecast on its official security page, so Airport Now classifies it as an official estimate instead of a direct live checkpoint feed.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'CMH', now);
+    }
+
+    if (cvgResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'CVG'
+          ? applyOfficialWait(airport, cvgResult.value, {
+              dataSource: 'CVG official checkpoint API',
+              note: 'Official CVG checkpoint data is live.',
+              insight: 'CVG wait times are coming from the official checkpoint API used by the airport security page.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'CVG', now);
+    }
 
   if (dfwResult.status === 'fulfilled') {
     airports = airports.map((airport) =>
@@ -496,6 +674,34 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
     );
   }
 
+    if (ewrResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'EWR'
+          ? applyOfficialWait(airport, ewrResult.value, {
+              dataSource: 'EWR official security wait API',
+              note: 'Official Newark checkpoint data is live.',
+              insight: 'EWR wait times are coming from the official airport security API used by the public homepage.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'EWR', now);
+    }
+
+    if (iahResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'IAH'
+          ? applyOfficialWait(airport, iahResult.value, {
+              dataSource: 'IAH official security wait API',
+              note: 'Official IAH checkpoint data is live.',
+              insight: 'IAH wait times are coming from the official airport API that backs the public security page.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'IAH', now);
+    }
+
   if (laxResult.status === 'fulfilled') {
     airports = airports.map((airport) =>
       airport.code === 'LAX'
@@ -507,6 +713,20 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
         : airport,
     );
   }
+
+    if (mcoResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'MCO'
+          ? applyOfficialWait(airport, mcoResult.value, {
+              dataSource: 'MCO official security wait API',
+              note: 'Official MCO checkpoint data is live.',
+              insight: 'MCO wait times are coming from the official airport API used by the live security widget on the public homepage.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'MCO', now);
+    }
 
   if (bwiResult.status === 'fulfilled') {
     airports = airports.map((airport) =>
@@ -592,6 +812,34 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
     );
   }
 
+    if (phlResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'PHL'
+          ? applyOfficialWait(airport, phlResult.value, {
+              dataSource: 'PHL official checkpoint metrics API',
+              note: 'Official PHL checkpoint data is live.',
+              insight: 'PHL wait times are coming from the metrics API configured in the airport checkpoint page script.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'PHL', now);
+    }
+
+    if (pitResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'PIT'
+          ? applyOfficialWait(airport, pitResult.value, {
+              dataSource: 'PIT official security page-backed API',
+              note: 'Official PIT checkpoint data is live.',
+              insight: 'PIT wait times are coming from the official airport API exposed through the public security page script.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'PIT', now);
+    }
+
   if (slcResult.status === 'fulfilled') {
     airports = airports.map((airport) =>
       airport.code === 'SLC'
@@ -604,29 +852,120 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
     );
   }
 
-  if (faaResult.status === 'fulfilled') {
-    airports = airports.map((airport) => applyFaaRisk(airport, faaResult.value.eventsByAirport[airport.code]));
-  }
+    if (stlResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'STL'
+          ? applyOfficialEstimateWait(airport, stlResult.value, {
+              dataSource: 'STL official on-page checkpoint estimate',
+              note: 'Official STL checkpoint estimate is available.',
+              insight: 'STL publishes a current on-page checkpoint estimate plus checkpoint status cards, so Airport Now classifies it as an official estimate instead of a direct live feed.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'STL', now);
+    }
 
-  const reportSummaries = await getRecentReportSummaryByAirport(new Date(generatedAt));
-  airports = airports.map((airport) => applyCommunitySignals(airport, reportSummaries[airport.code]));
+    if (chsResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'CHS'
+          ? applyOfficialEstimateWait(airport, chsResult.value, {
+              dataSource: 'CHS official security checkpoint page',
+              note: 'Official CHS checkpoint estimates are available.',
+              insight: 'CHS publishes current official checkpoint estimates plus an hourly forecast on the airport security page, so Airport Now classifies it as an official estimate source.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'CHS', now);
+    }
 
-  const value = {
-    generatedAt,
-    airports: sortAirports(airports).map((airport) => ({
-      ...airport,
-      recommendation: buildRecommendation(airport),
-    })),
-  };
+    if (houResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'HOU'
+          ? applyOfficialWait(airport, houResult.value, {
+              dataSource: 'HOU official security wait API',
+              note: 'Official HOU checkpoint data is live.',
+              insight: 'HOU wait times are coming from the official Houston Airports API that backs the public Hobby security page.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'HOU', now);
+    }
 
-  cache = {
-    expiresAt: now + 60_000,
-    value,
-  };
+    if (jaxResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'JAX'
+          ? applyOfficialEstimateWait(airport, jaxResult.value, {
+              dataSource: 'JAX official checkpoint wait page',
+              note: 'Official JAX checkpoint estimates are available.',
+              insight: 'JAX publishes current checkpoint estimates with lane-level breakdowns on its official wait page, so Airport Now classifies it as an official estimate source.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'JAX', now);
+    }
 
-  return value;
+    if (omaResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'OMA'
+          ? applyOfficialEstimateWait(airport, omaResult.value, {
+              dataSource: 'OMA official security checkpoint page',
+              note: 'Official OMA checkpoint estimates are available.',
+              insight: 'OMA publishes current concourse-level checkpoint ranges on its official security page, so Airport Now classifies it as an official estimate source.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'OMA', now);
+    }
+
+    if (satResult.status === 'fulfilled') {
+      airports = airports.map((airport) =>
+        airport.code === 'SAT'
+          ? applyOfficialEstimateWait(airport, satResult.value, {
+              dataSource: 'SAT official security wait page',
+              note: 'Official SAT checkpoint estimates are available.',
+              insight: 'SAT publishes terminal-level security average wait times on its official security page, so Airport Now classifies it as an official estimate source.',
+            })
+          : airport,
+      );
+    } else {
+      airports = reuseStaleOfficialWait(airports, previousSnapshot, 'SAT', now);
+    }
+
+    if (faaResult.status === 'fulfilled') {
+      airports = airports.map((airport) => applyFaaRisk(airport, faaResult.value.eventsByAirport[airport.code]));
+    }
+
+    const reportSummaries = await getRecentReportSummaryByAirport(new Date(generatedAt));
+    airports = airports.map((airport) => applyCommunitySignals(airport, reportSummaries[airport.code]));
+
+    const value = {
+      generatedAt,
+      airports: sortAirports(airports).map((airport) => ({
+        ...airport,
+        recommendation: buildRecommendation(airport),
+      })),
+    };
+
+    cache = {
+      expiresAt: now + 60_000,
+      value,
+    };
+
+    return value;
+  })().finally(() => {
+    inFlightSnapshot = null;
+  });
+
+  inFlightSnapshot = request;
+  return request;
 }
 
 export function invalidateAirportSnapshotCache(): void {
   cache = null;
+  inFlightSnapshot = null;
 }

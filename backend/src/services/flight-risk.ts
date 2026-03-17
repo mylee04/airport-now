@@ -110,6 +110,8 @@ function buildDrivers(airport: AirportStatus, window: DepartureWindowProfile): s
 
   if (airport.waitTimeSource === 'official') {
     drivers.push(`Official checkpoint data currently shows ${airport.waitDisplay.toLowerCase()} at ${airport.code}, which sharpens the queue side of the estimate.`);
+  } else if (airport.waitTimeSource === 'official_estimate') {
+    drivers.push(`Official checkpoint estimates currently suggest about ${airport.waitDisplay.toLowerCase()} at ${airport.code}, which is useful but softer than a direct live checkpoint feed.`);
   } else if (airport.waitTimeSource === 'community') {
     drivers.push(`Recent traveler reports currently imply about ${airport.waitDisplay.toLowerCase()} at ${airport.code}, which is the best queue signal available right now.`);
   } else {
@@ -173,7 +175,9 @@ export async function getFlightRisk(query: FlightRiskQuery): Promise<FlightRiskA
   const departureWindow = profileDepartureWindow(departureHour);
   const travelPressure = getTravelPressure(departureDate);
   const waitAdjustment =
-    airport.waitTimeSource === 'official' || airport.waitTimeSource === 'community'
+    airport.waitTimeSource === 'official' ||
+    airport.waitTimeSource === 'official_estimate' ||
+    airport.waitTimeSource === 'community'
       ? airport.waitMinutes >= 20
         ? 5
         : -2

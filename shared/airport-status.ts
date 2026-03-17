@@ -40,12 +40,17 @@ export const AIRPORT_CODES = [
   'SLC',
   'STL',
   'TPA',
+  'CHS',
+  'HOU',
+  'JAX',
+  'OMA',
+  'SAT',
 ] as const;
 
 export type AirportCode = (typeof AIRPORT_CODES)[number];
 export type CrowdLevel = 'Unknown' | 'Low' | 'Medium' | 'High' | 'Severe';
 export type Confidence = 'High' | 'Medium' | 'Low';
-export type WaitTimeSource = 'official' | 'community' | 'none';
+export type WaitTimeSource = 'official' | 'official_estimate' | 'community' | 'none';
 export type RiskSource = 'live' | 'community' | 'none';
 export type CheckpointStatus = 'Open' | 'Closed' | 'PreCheck Only';
 export type CheckpointSource = 'official' | 'community';
@@ -141,6 +146,11 @@ export const AIRPORT_METADATA: AirportDefinition[] = [
   { code: 'SLC', name: 'Salt Lake City International', city: 'Salt Lake City, UT', icaoCode: 'KSLC', latitude: 40.7899, longitude: -111.9791, timeZone: 'America/Denver' },
   { code: 'STL', name: 'St. Louis Lambert', city: 'St. Louis, MO', icaoCode: 'KSTL', latitude: 38.7487, longitude: -90.37, timeZone: 'America/Chicago' },
   { code: 'TPA', name: 'Tampa International', city: 'Tampa, FL', icaoCode: 'KTPA', latitude: 27.9755, longitude: -82.5332, timeZone: 'America/New_York' },
+  { code: 'CHS', name: 'Charleston International', city: 'Charleston, SC', icaoCode: 'KCHS', latitude: 32.8986, longitude: -80.0405, timeZone: 'America/New_York' },
+  { code: 'HOU', name: 'William P. Hobby', city: 'Houston, TX', icaoCode: 'KHOU', latitude: 29.6454, longitude: -95.2789, timeZone: 'America/Chicago' },
+  { code: 'JAX', name: 'Jacksonville International', city: 'Jacksonville, FL', icaoCode: 'KJAX', latitude: 30.4941, longitude: -81.6879, timeZone: 'America/New_York' },
+  { code: 'OMA', name: 'Eppley Airfield', city: 'Omaha, NE', icaoCode: 'KOMA', latitude: 41.3032, longitude: -95.8941, timeZone: 'America/Chicago' },
+  { code: 'SAT', name: 'San Antonio International', city: 'San Antonio, TX', icaoCode: 'KSAT', latitude: 29.5337, longitude: -98.4698, timeZone: 'America/Chicago' },
 ];
 
 export function getCrowdLevel(waitMinutes: number): CrowdLevel {

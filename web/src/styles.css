@@ -387,6 +387,42 @@ a {
   gap: 12px;
 }
 
+.airport-switcher-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.airport-switcher-select-field {
+  display: grid;
+  gap: 6px;
+  min-width: min(320px, 100%);
+}
+
+.airport-switcher-select-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.airport-switcher-select {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(248, 243, 232, 0.12);
+  background: rgba(248, 243, 232, 0.05);
+  color: var(--text);
+  font: inherit;
+}
+
+.airport-switcher-select:focus {
+  outline: 2px solid rgba(98, 171, 207, 0.5);
+  outline-offset: 2px;
+}
+
 .airport-switcher-controls {
   display: inline-flex;
   align-items: center;
@@ -1390,6 +1426,12 @@ a {
   background: rgba(134, 203, 146, 0.14);
   border-color: rgba(134, 203, 146, 0.24);
   color: #d8f4dd;
+}
+
+.source-chip-tier-estimate {
+  background: rgba(210, 187, 112, 0.14);
+  border-color: rgba(210, 187, 112, 0.26);
+  color: #f7e8b4;
 }
 
 .source-chip-tier-community {
@@ -2397,6 +2439,15 @@ a {
   .airport-switcher-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .airport-switcher-toolbar {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .airport-switcher-select-field {
+    width: 100%;
   }
 }
 

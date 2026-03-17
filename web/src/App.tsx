@@ -95,6 +95,13 @@ function App() {
   } = useAirportReports(selectedCode);
 
   const selectedAirport = useMemo(() => findAirportByCode(airports, selectedCode), [airports, selectedCode]);
+  const selectableAirports = useMemo(
+    () =>
+      [...airports].sort(
+        (left, right) => left.code.localeCompare(right.code) || left.city.localeCompare(right.city),
+      ),
+    [airports],
+  );
   const selectedCoverageTier = getAirportCoverageTier(selectedAirport);
   const trackerLinks = useMemo(() => buildTrackerLinks(selectedAirport.code), [selectedAirport.code]);
   const boardAirportTimeZoneShort =
@@ -388,7 +395,7 @@ function App() {
       <div className="background-grid" />
 
       <HeroHeader
-        airports={airports}
+        airports={selectableAirports}
         selectedCode={selectedCode}
         onSelectAirport={selectAirport}
         mode={mode}
@@ -449,7 +456,7 @@ function App() {
 
           <section className="side-stack">
             <FlightRiskPanel
-              airports={airports}
+              airports={selectableAirports}
               flightForm={flightForm}
               setFlightForm={setFlightForm}
               flightOriginAirport={flightOriginAirport}

@@ -223,25 +223,43 @@ export function HeroHeader({
         <div className="hero-switcher" id="airport-picker">
           <div className="airport-switcher-head">
             <p className="panel-label">Select departure airport</p>
-            <div className="airport-switcher-controls" aria-label="Airport tab scroll controls">
-              <button
-                type="button"
-                className="airport-switcher-arrow"
-                onClick={() => onScrollAirportSwitcher('left')}
-                disabled={!airportSwitcherCanScrollLeft}
-                aria-label="Scroll airport tabs left"
-              >
-                {'<'}
-              </button>
-              <button
-                type="button"
-                className="airport-switcher-arrow"
-                onClick={() => onScrollAirportSwitcher('right')}
-                disabled={!airportSwitcherCanScrollRight}
-                aria-label="Scroll airport tabs right"
-              >
-                {'>'}
-              </button>
+            <div className="airport-switcher-toolbar">
+              <label className="airport-switcher-select-field">
+                <span className="airport-switcher-select-label">Jump to airport</span>
+                <select
+                  className="airport-switcher-select"
+                  value={selectedCode}
+                  onChange={(event) => onSelectAirport(event.target.value as AirportCode)}
+                  aria-label="Jump to departure airport"
+                >
+                  {airports.map((airport) => (
+                    <option key={`switcher-${airport.code}`} value={airport.code}>
+                      {airport.code} · {airport.city}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="airport-switcher-controls" aria-label="Airport tab scroll controls">
+                <button
+                  type="button"
+                  className="airport-switcher-arrow"
+                  onClick={() => onScrollAirportSwitcher('left')}
+                  disabled={!airportSwitcherCanScrollLeft}
+                  aria-label="Scroll airport tabs left"
+                >
+                  {'<'}
+                </button>
+                <button
+                  type="button"
+                  className="airport-switcher-arrow"
+                  onClick={() => onScrollAirportSwitcher('right')}
+                  disabled={!airportSwitcherCanScrollRight}
+                  aria-label="Scroll airport tabs right"
+                >
+                  {'>'}
+                </button>
+              </div>
             </div>
           </div>
           <div
