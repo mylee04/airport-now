@@ -2,6 +2,7 @@ import { startTransition, useEffect, useState, type Dispatch, type SetStateActio
 import type { AirportCode, AirportStatus } from '../../../shared/airport-status';
 import type { TrafficApiResponse } from '../../../shared/traffic';
 import {
+  fetchCommunityPhotoWall,
   fetchAirportFlightBoards,
   fetchAirportReports,
   fetchAirportSnapshot,
@@ -260,5 +261,52 @@ export function useAirportReports(selectedCode: AirportCode): {
     setReports,
     setReportsMode,
     setReportsError,
+  };
+}
+
+export function useCommunityPhotoWall(): {
+  photoReports: AirportReport[];
+  photoWallMode: ReportLoadMode;
+  photoWallError: string | null;
+  reloadPhotoWall: (signal?: AbortSignal) => Promise<boolean>;
+} {
+  const [photoReports, setPhotoReports] = useState<AirportReport[]>([]);
+  const [photoWallMode, setPhotoWallMode] = useState<ReportLoadMode>('idle');
+  const [photoWallError, setPhotoWallError] = useState<string | null>(null);
+
+  const reloadPhotoWall = (signal?: AbortSignal) => {
+    setPhotoWallMode('loading');
+    setPhotoWallError(null);
+
+    return fetchCommunityPhotoWall(signal)
+      .then((payload) => {
+        startTransition(() => {
+          setPhotoReports(payload.reports);
+          setPhotoWallMode('ready');
+        });
+        return true;
+      })
+      .catch((requestError: unknown) => {
+        if (signal?.aborted) {
+          return false;
+        }
+
+        setPhotoWallError(getErrorMessage(requestError, 'Unable to load the traveler photo wall.'));
+        setPhotoWallMode('error');
+        return false;
+      });
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void reloadPhotoWall(controller.signal);
+    return () => controller.abort();
+  }, []);
+
+  return {
+    photoReports,
+    photoWallMode,
+    photoWallError,
+    reloadPhotoWall,
   };
 }

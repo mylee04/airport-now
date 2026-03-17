@@ -1,5 +1,5 @@
 import type { AirportCode } from '../../../../shared/airport-status';
-import type { AirportReport, AirportReportsApiResponse } from '../../../../shared/report';
+import type { AirportReport, AirportReportsApiResponse, CommunityPhotoWallApiResponse } from '../../../../shared/report';
 import {
   deletePhotoAsset,
   loadReportsFromStorage,
@@ -120,6 +120,25 @@ export async function listAirportReports(airportCode: AirportCode): Promise<Airp
       reports: sortReportsByCreatedAt(
         reports
           .filter((report) => report.airportCode === airportCode)
+          .map((report) => ({
+            ...report,
+            photoUrl: resolveStoredPhotoUrl(report.photoUrl),
+          })),
+      ),
+    };
+  });
+}
+
+export async function listCommunityPhotoWallReports(): Promise<CommunityPhotoWallApiResponse> {
+  return runWithReportStoreLock(async () => {
+    await refreshReportsFromStorage();
+    await pruneExpiredReports();
+
+    return {
+      generatedAt: new Date().toISOString(),
+      reports: sortReportsByCreatedAt(
+        reports
+          .filter((report) => Boolean(report.photoUrl))
           .map((report) => ({
             ...report,
             photoUrl: resolveStoredPhotoUrl(report.photoUrl),

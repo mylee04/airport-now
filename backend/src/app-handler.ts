@@ -6,6 +6,7 @@ import {
   createAirportReport,
   initializeReportStore,
   listAirportReports,
+  listCommunityPhotoWallReports,
   setReportStoreChangeListener,
 } from './services/report-store';
 import { getUploadFilename, UPLOADS_DIR } from './services/report-store/shared';
@@ -165,6 +166,10 @@ export async function handleAppRequest(request: Request): Promise<Response> {
     }
 
     return json(await listAirportReports(airportCode));
+  }
+
+  if (url.pathname === '/api/reports/photos' && request.method === 'GET') {
+    return json(await listCommunityPhotoWallReports());
   }
 
   if (url.pathname === '/api/reports' && request.method === 'POST') {

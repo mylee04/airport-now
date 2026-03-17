@@ -41,6 +41,7 @@ import {
   useAirportReports,
   useAirportSnapshot,
   useAirportTraffic,
+  useCommunityPhotoWall,
   useFlightBoards,
   useFlightRisk,
 } from './hooks/use-airport-now-data';
@@ -93,6 +94,12 @@ function App() {
     reportsError,
     reloadReports,
   } = useAirportReports(selectedCode);
+  const {
+    photoReports: communityPhotoWallReports,
+    photoWallMode,
+    photoWallError,
+    reloadPhotoWall,
+  } = useCommunityPhotoWall();
 
   const selectedAirport = useMemo(() => findAirportByCode(airports, selectedCode), [airports, selectedCode]);
   const selectableAirports = useMemo(
@@ -282,7 +289,7 @@ function App() {
 
     try {
       await createAirportReport(formData);
-      const [snapshotRefreshed, reportsRefreshed] = await Promise.all([refresh(), reloadReports()]);
+      const [snapshotRefreshed, reportsRefreshed] = await Promise.all([refresh(), reloadReports(), reloadPhotoWall()]);
       setReportSubmitMode('success');
       setReportSubmitMessage(
         snapshotRefreshed && reportsRefreshed
@@ -401,6 +408,9 @@ function App() {
         mode={mode}
         error={error}
         selectedStatusMetrics={selectedStatusMetrics}
+        communityPhotoWallReports={communityPhotoWallReports}
+        photoWallMode={photoWallMode}
+        photoWallError={photoWallError}
         airportSwitcherCanScrollLeft={airportSwitcherCanScrollLeft}
         airportSwitcherCanScrollRight={airportSwitcherCanScrollRight}
         onScrollAirportSwitcher={scrollAirportSwitcher}

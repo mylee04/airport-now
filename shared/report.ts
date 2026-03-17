@@ -26,3 +26,8 @@ export type AirportReportsApiResponse = {
   airportCode: AirportCode;
   reports: AirportReport[];
 };
+
+export type CommunityPhotoWallApiResponse = {
+  generatedAt: string;
+  reports: AirportReport[];
+};

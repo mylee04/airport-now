@@ -2,7 +2,7 @@ import type { AirportsApiResponse } from '../../../shared/airport-status';
 import type { FlightRiskApiResponse, FlightRiskQuery } from '../../../shared/flight-risk';
 import type { FlightBoardsApiResponse } from '../../../shared/flight-board';
 import type { AirportCode } from '../../../shared/airport-status';
-import type { AirportReportsApiResponse } from '../../../shared/report';
+import type { AirportReportsApiResponse, CommunityPhotoWallApiResponse } from '../../../shared/report';
 import type { TrafficApiResponse } from '../../../shared/traffic';
 
 function resolveApiBaseUrl(): string {
@@ -102,6 +102,16 @@ export async function fetchAirportReports(
   }
 
   return response.json() as Promise<AirportReportsApiResponse>;
+}
+
+export async function fetchCommunityPhotoWall(signal?: AbortSignal): Promise<CommunityPhotoWallApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/reports/photos`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`Community photo wall request failed with ${response.status}`);
+  }
+
+  return response.json() as Promise<CommunityPhotoWallApiResponse>;
 }
 
 export async function createAirportReport(formData: FormData): Promise<void> {

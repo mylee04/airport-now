@@ -53,6 +53,9 @@ type HeroHeaderProps = {
   mode: 'loading' | 'live' | 'fallback';
   error: string | null;
   selectedStatusMetrics: StatusMetric[];
+  communityPhotoWallReports: AirportReport[];
+  photoWallMode: ReportLoadMode;
+  photoWallError: string | null;
   airportSwitcherCanScrollLeft: boolean;
   airportSwitcherCanScrollRight: boolean;
   onScrollAirportSwitcher: (direction: 'left' | 'right') => void;
@@ -145,6 +148,13 @@ type CommunityPhotoPreviewProps = {
   fallbackClassName: string;
 };
 
+type CommunityPhotoWallPreviewProps = {
+  photoReports: AirportReport[];
+  mode: ReportLoadMode;
+  error: string | null;
+  onSelectAirport: (code: AirportCode) => void;
+};
+
 const GITHUB_REPO_URL = 'https://github.com/mylee04/airport-now';
 
 function CommunityPhotoPreview({ imageUrl, alt, className, fallbackClassName }: CommunityPhotoPreviewProps) {
@@ -161,6 +171,92 @@ function CommunityPhotoPreview({ imageUrl, alt, className, fallbackClassName }: 
   return <img className={className} src={imageUrl} alt={alt} onError={() => setLoadFailed(true)} />;
 }
 
+function CommunityPhotoWallPreview({
+  photoReports,
+  mode,
+  error,
+  onSelectAirport,
+}: CommunityPhotoWallPreviewProps) {
+  const activeAirportCount = new Set(photoReports.map((report) => report.airportCode)).size;
+
+  return (
+    <section className="community-photo-wall-preview" aria-labelledby="community-photo-wall-heading">
+      <div className="community-photo-wall-head">
+        <div>
+          <p className="section-kicker">Traveler photo wall</p>
+          <h2 id="community-photo-wall-heading">See what checkpoint lines look like before you pick an airport</h2>
+        </div>
+        <div className="community-photo-wall-meta">
+          <span>{photoReports.length} photos</span>
+          <span>{activeAirportCount} airports</span>
+          <span>Rolling {REPORT_TTL_HOURS}-hour window</span>
+        </div>
+      </div>
+
+      <p className="detail-insight">
+        Every photo here comes from the live community feed. Tap any card to jump straight into that airport and read
+        the checkpoint detail below.
+      </p>
+
+      {error ? <p className="error-banner">{error}</p> : null}
+
+      {photoReports.length > 0 ? (
+        <div className="global-photo-wall-grid">
+          {photoReports.map((report) => {
+            const imageUrl = resolveApiAssetUrl(report.photoUrl);
+
+            if (!imageUrl) {
+              return null;
+            }
+
+            return (
+              <button
+                key={report.id}
+                type="button"
+                className="global-photo-wall-card"
+                onClick={() => onSelectAirport(report.airportCode)}
+                aria-label={`Open ${report.airportCode} traveler photo from ${report.checkpoint}`}
+              >
+                <div className="global-photo-wall-card-media">
+                  <CommunityPhotoPreview
+                    className="photo-wall-image"
+                    fallbackClassName="photo-wall-image-fallback"
+                    imageUrl={imageUrl}
+                    alt={`${report.airportCode} traveler photo from ${report.checkpoint}`}
+                  />
+                  <span className="global-photo-wall-airport-overlay">{report.airportCode}</span>
+                </div>
+                <div className="global-photo-wall-card-body">
+                  <div className="global-photo-wall-card-top">
+                    <span className="global-photo-wall-time">
+                      {formatReportLifetime(report.createdAt, report.expiresAt)}
+                    </span>
+                  </div>
+                  <div className="photo-wall-badges">
+                    <span>{report.queueLength}</span>
+                    <span>{report.crowdLevel}</span>
+                  </div>
+                  <div className="photo-wall-copy">
+                    <strong>{report.checkpoint}</strong>
+                    <span>Open {report.airportCode} feed</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : mode === 'loading' ? (
+        <p className="empty-state">Loading the live traveler photo wall.</p>
+      ) : (
+        <p className="empty-state">
+          No checkpoint photos have been posted across the network yet. The first traveler photo will stay here for{' '}
+          {REPORT_TTL_HOURS} hours.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function HeroHeader({
   airports,
   selectedCode,
@@ -168,6 +264,9 @@ export function HeroHeader({
   mode,
   error,
   selectedStatusMetrics,
+  communityPhotoWallReports,
+  photoWallMode,
+  photoWallError,
   airportSwitcherCanScrollLeft,
   airportSwitcherCanScrollRight,
   onScrollAirportSwitcher,
@@ -177,39 +276,39 @@ export function HeroHeader({
     <header className="hero">
       <div className="hero-copy">
         <div className="hero-top">
-        <div className="hero-lockup">
-          <p className="eyebrow">Live airport intelligence for the one airport you are actually using</p>
-          <h1 className="hero-brand">Airport Now</h1>
-        </div>
+          <div className="hero-lockup">
+            <p className="eyebrow">Live airport intelligence for the one airport you are actually using</p>
+            <h1 className="hero-brand">Airport Now</h1>
+          </div>
 
-        <div className="hero-intro">
-          <div className="hero-intro-top">
-            <a
-              className="hero-github-link"
-              href={GITHUB_REPO_URL}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="GitHub repository"
-            >
-              <svg className="hero-github-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                <path
-                  fill="currentColor"
-                  d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38
+          <div className="hero-intro">
+            <div className="hero-intro-top">
+              <a
+                className="hero-github-link"
+                href={GITHUB_REPO_URL}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="GitHub repository"
+              >
+                <svg className="hero-github-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38
                   0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52
                   -.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78
                   -.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21
                   2.2.82A7.5 7.5 0 0 1 8 3.5a7.5 7.5 0 0 1 2.01.27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16
                   1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54
                   1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
-                />
-              </svg>
-              <span>GitHub</span>
-            </a>
-          </div>
+                  />
+                </svg>
+                <span>GitHub</span>
+              </a>
+            </div>
 
-          <p className="hero-headline">Read the terminal before you leave for the airport.</p>
+            <p className="hero-headline">Read the terminal before you leave for the airport.</p>
 
-          <div className="hero-actions">
+            <div className="hero-actions">
               <a className="primary-button" href="#airport-picker">
                 Choose Airport
               </a>
@@ -219,6 +318,13 @@ export function HeroHeader({
             </div>
           </div>
         </div>
+
+        <CommunityPhotoWallPreview
+          photoReports={communityPhotoWallReports}
+          mode={photoWallMode}
+          error={photoWallError}
+          onSelectAirport={onSelectAirport}
+        />
 
         <div className="hero-switcher" id="airport-picker">
           <div className="airport-switcher-head">
