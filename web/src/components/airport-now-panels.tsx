@@ -138,6 +138,27 @@ type AirspacePanelProps = {
   onAircraftClick: (aircraftId: string) => void;
 };
 
+type CommunityPhotoPreviewProps = {
+  imageUrl: string | null;
+  alt: string;
+  className: string;
+  fallbackClassName: string;
+};
+
+function CommunityPhotoPreview({ imageUrl, alt, className, fallbackClassName }: CommunityPhotoPreviewProps) {
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [imageUrl]);
+
+  if (!imageUrl || loadFailed) {
+    return <div className={fallbackClassName}>Photo unavailable</div>;
+  }
+
+  return <img className={className} src={imageUrl} alt={alt} onError={() => setLoadFailed(true)} />;
+}
+
 export function HeroHeader({
   airports,
   selectedCode,
@@ -760,9 +781,10 @@ export function CommunityPanel({
 
               return (
                 <article key={report.id} className="photo-wall-card">
-                  <img
+                  <CommunityPhotoPreview
                     className="photo-wall-image"
-                    src={imageUrl}
+                    fallbackClassName="photo-wall-image-fallback"
+                    imageUrl={imageUrl}
                     alt={`${report.airportCode} traveler photo from ${report.checkpoint}`}
                   />
                   <div className="photo-wall-badges">
@@ -805,9 +827,10 @@ export function CommunityPanel({
                   {report.note ? <p className="card-note">{report.note}</p> : null}
 
                   {imageUrl ? (
-                    <img
+                    <CommunityPhotoPreview
                       className="report-photo"
-                      src={imageUrl}
+                      fallbackClassName="report-photo-fallback"
+                      imageUrl={imageUrl}
                       alt={`${report.airportCode} traveler report from ${report.checkpoint}`}
                     />
                   ) : null}

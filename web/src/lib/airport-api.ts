@@ -125,5 +125,14 @@ export function resolveApiAssetUrl(path: string | null): string | null {
     return null;
   }
 
+  if (
+    path.startsWith('data:') ||
+    path.startsWith('blob:') ||
+    path.startsWith('http://') ||
+    path.startsWith('https://')
+  ) {
+    return path;
+  }
+
   return `${API_BASE_URL}${path}`;
 }

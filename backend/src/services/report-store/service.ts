@@ -1,6 +1,13 @@
 import type { AirportCode } from '../../../../shared/airport-status';
 import type { AirportReport, AirportReportsApiResponse } from '../../../../shared/report';
-import { deletePhotoAsset, loadReportsFromDisk, persistReports, savePhoto } from './repository';
+import {
+  deletePhotoAsset,
+  loadReportsFromStorage,
+  persistReports,
+  resolveStoredPhotoUrl,
+  savePhoto,
+  usesBlobStorage,
+} from './repository';
 import {
   CLEANUP_INTERVAL_MS,
   ReportSummary,
@@ -22,11 +29,19 @@ function emitReportsChanged(): void {
   reportsChangedListener?.();
 }
 
+async function refreshReportsFromStorage(): Promise<void> {
+  if (!usesBlobStorage()) {
+    return;
+  }
+
+  reports = await loadReportsFromStorage();
+}
+
 function isExpiredReport(report: AirportReport, now = new Date()): boolean {
   return new Date(report.expiresAt).getTime() <= now.getTime();
 }
 
-function pruneExpiredReports(now = new Date(), shouldEmit = true): boolean {
+async function pruneExpiredReports(now = new Date(), shouldEmit = true): Promise<boolean> {
   const activeReports: AirportReport[] = [];
   const expiredReports: AirportReport[] = [];
 
@@ -44,11 +59,9 @@ function pruneExpiredReports(now = new Date(), shouldEmit = true): boolean {
 
   reports = sortReportsByCreatedAt(activeReports);
 
-  for (const report of expiredReports) {
-    deletePhotoAsset(report.photoUrl);
-  }
+  await Promise.all(expiredReports.map((report) => deletePhotoAsset(report.photoUrl)));
 
-  persistReports(reports);
+  await persistReports(reports);
 
   if (shouldEmit) {
     emitReportsChanged();
@@ -64,19 +77,17 @@ function startCleanupLoop(): void {
 
   cleanupStarted = true;
   const timer = setInterval(() => {
-    try {
-      pruneExpiredReports();
-    } catch (error) {
+    void pruneExpiredReports().catch((error) => {
       console.error('Airport report cleanup failed:', error);
-    }
+    });
   }, CLEANUP_INTERVAL_MS);
 
   timer.unref?.();
 }
 
-export function initializeReportStore(): void {
-  reports = loadReportsFromDisk();
-  pruneExpiredReports(new Date(), false);
+export async function initializeReportStore(): Promise<void> {
+  reports = await loadReportsFromStorage();
+  await pruneExpiredReports(new Date(), false);
   startCleanupLoop();
 }
 
@@ -84,18 +95,27 @@ export function setReportStoreChangeListener(listener: (() => void) | null): voi
   reportsChangedListener = listener;
 }
 
-export function listAirportReports(airportCode: AirportCode): AirportReportsApiResponse {
-  pruneExpiredReports();
+export async function listAirportReports(airportCode: AirportCode): Promise<AirportReportsApiResponse> {
+  await refreshReportsFromStorage();
+  await pruneExpiredReports();
 
   return {
     generatedAt: new Date().toISOString(),
     airportCode,
-    reports: sortReportsByCreatedAt(reports.filter((report) => report.airportCode === airportCode)),
+    reports: sortReportsByCreatedAt(
+      reports
+        .filter((report) => report.airportCode === airportCode)
+        .map((report) => ({
+          ...report,
+          photoUrl: resolveStoredPhotoUrl(report.photoUrl),
+        })),
+    ),
   };
 }
 
 export async function createAirportReport(request: Request): Promise<AirportReport> {
-  pruneExpiredReports();
+  await refreshReportsFromStorage();
+  await pruneExpiredReports();
 
   const formData = await request.formData();
   const airportCodeValue = formData.get('airportCode');
@@ -156,9 +176,9 @@ export async function createAirportReport(request: Request): Promise<AirportRepo
 
   try {
     reports = nextReports;
-    persistReports(reports);
+    await persistReports(reports);
   } catch (error) {
-    deletePhotoAsset(photoUrl);
+    await deletePhotoAsset(photoUrl);
     reports = reports.filter((existingReport) => existingReport.id !== report.id);
     throw error;
   }
@@ -167,8 +187,11 @@ export async function createAirportReport(request: Request): Promise<AirportRepo
   return report;
 }
 
-export function getRecentReportSummaryByAirport(now = new Date()): Partial<Record<AirportCode, ReportSummary>> {
-  pruneExpiredReports(now);
+export async function getRecentReportSummaryByAirport(
+  now = new Date(),
+): Promise<Partial<Record<AirportCode, ReportSummary>>> {
+  await refreshReportsFromStorage();
+  await pruneExpiredReports(now);
   const summaries: Partial<Record<AirportCode, ReportSummary>> = {};
 
   for (const report of reports) {

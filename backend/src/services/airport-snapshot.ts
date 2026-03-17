@@ -25,7 +25,7 @@ type SnapshotCache = {
 };
 
 type FaaAirportEvent = Awaited<ReturnType<typeof fetchFaaSnapshot>>['eventsByAirport'][AirportCode];
-type ReportSummary = ReturnType<typeof getRecentReportSummaryByAirport>[AirportCode];
+type ReportSummary = Awaited<ReturnType<typeof getRecentReportSummaryByAirport>>[AirportCode];
 type OfficialWaitSnapshot = {
   fetchedAt: string;
   waitMinutes: number;
@@ -506,7 +506,7 @@ export async function getAirportSnapshot(): Promise<AirportsApiResponse> {
     airports = airports.map((airport) => applyFaaRisk(airport, faaResult.value.eventsByAirport[airport.code]));
   }
 
-  const reportSummaries = getRecentReportSummaryByAirport(new Date(generatedAt));
+  const reportSummaries = await getRecentReportSummaryByAirport(new Date(generatedAt));
   airports = airports.map((airport) => applyCommunitySignals(airport, reportSummaries[airport.code]));
 
   const value = {

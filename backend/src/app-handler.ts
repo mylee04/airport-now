@@ -13,17 +13,29 @@ import { getAirportSnapshot, invalidateAirportSnapshotCache } from './services/a
 import { getAirportTrafficSnapshot, getTrafficSnapshot } from './services/traffic-snapshot';
 
 let initialized = false;
+let initializePromise: Promise<void> | null = null;
 
-function ensureInitialized(): void {
+async function ensureInitialized(): Promise<void> {
   if (initialized) {
+    return;
+  }
+
+  if (initializePromise) {
+    await initializePromise;
     return;
   }
 
   setReportStoreChangeListener(() => {
     invalidateAirportSnapshotCache();
   });
-  initializeReportStore();
-  initialized = true;
+  initializePromise = initializeReportStore()
+    .then(() => {
+      initialized = true;
+    })
+    .finally(() => {
+      initializePromise = null;
+    });
+  await initializePromise;
 }
 
 function isAirportCode(value: string): value is AirportCode {
@@ -97,7 +109,7 @@ async function serveUpload(url: URL): Promise<Response> {
 }
 
 export async function handleAppRequest(request: Request): Promise<Response> {
-  ensureInitialized();
+  await ensureInitialized();
 
   const url = new URL(request.url);
 
@@ -152,7 +164,7 @@ export async function handleAppRequest(request: Request): Promise<Response> {
       );
     }
 
-    return json(listAirportReports(airportCode));
+    return json(await listAirportReports(airportCode));
   }
 
   if (url.pathname === '/api/reports' && request.method === 'POST') {

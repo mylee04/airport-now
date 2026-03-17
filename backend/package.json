@@ -10,5 +10,8 @@
     "start": "bun src/server.ts",
     "build": "bun build ./src/server.ts --outdir dist --target bun"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@vercel/blob": "^2.3.1"
+  }
 }
