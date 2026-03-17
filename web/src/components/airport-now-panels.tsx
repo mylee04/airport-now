@@ -711,15 +711,13 @@ export function CommunityPanel({
                     src={imageUrl}
                     alt={`${report.airportCode} traveler photo from ${report.checkpoint}`}
                   />
+                  <div className="photo-wall-badges">
+                    <span>{report.queueLength}</span>
+                    <span>{report.crowdLevel}</span>
+                  </div>
                   <div className="photo-wall-copy">
-                    <div className="photo-wall-head">
-                      <strong>{report.checkpoint}</strong>
-                      <span>{formatReportLifetime(report.createdAt, report.expiresAt)}</span>
-                    </div>
-                    <p className="photo-wall-meta">
-                      {report.queueLength} · {report.crowdLevel}
-                    </p>
-                    {report.note ? <p className="photo-wall-note">{report.note}</p> : null}
+                    <strong>{report.checkpoint}</strong>
+                    <span>{formatReportLifetime(report.createdAt, report.expiresAt)}</span>
                   </div>
                 </article>
               );

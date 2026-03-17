@@ -134,43 +134,73 @@
 
 .photo-wall-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
   margin-top: 18px;
 }
 
 .photo-wall-card {
+  position: relative;
   overflow: hidden;
-  border-radius: 22px;
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
   background: rgba(248, 243, 232, 0.04);
   border: 1px solid rgba(248, 243, 232, 0.08);
 }
 
 .photo-wall-image {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.photo-wall-copy {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-}
-
-.photo-wall-head {
+.photo-wall-badges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 1;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.photo-wall-head span,
-.photo-wall-meta,
-.photo-wall-note {
-  margin: 0;
+.photo-wall-badges span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(6, 10, 17, 0.76);
+  border: 1px solid rgba(248, 243, 232, 0.12);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(12px);
+}
+
+.photo-wall-copy {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  gap: 2px;
+  padding: 32px 12px 12px;
+  background: linear-gradient(180deg, rgba(6, 10, 17, 0) 0%, rgba(6, 10, 17, 0.88) 58%, rgba(6, 10, 17, 0.96) 100%);
+}
+
+.photo-wall-copy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+}
+
+.photo-wall-copy span {
   color: var(--muted);
+  font-size: 0.74rem;
   line-height: 1.5;
 }
 
@@ -254,7 +284,7 @@
 
 @media (max-width: 900px) {
   .photo-wall-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -269,8 +299,34 @@
     border-radius: 24px;
   }
 
-  .camera-modal-head,
-  .photo-wall-head {
+  .camera-modal-head {
     flex-direction: column;
+  }
+
+  .photo-wall-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .photo-wall-badges {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+  }
+
+  .photo-wall-badges span:last-child {
+    display: none;
+  }
+
+  .photo-wall-copy {
+    padding: 26px 8px 8px;
+  }
+
+  .photo-wall-copy strong {
+    font-size: 0.76rem;
+  }
+
+  .photo-wall-copy span {
+    font-size: 0.68rem;
   }
 }
