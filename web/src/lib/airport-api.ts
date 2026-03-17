@@ -111,6 +111,10 @@ export async function createAirportReport(formData: FormData): Promise<void> {
   });
 
   if (!response.ok) {
+    if (response.status === 413) {
+      throw new Error('The photo upload is still too large for the server. Try a tighter crop or another image.');
+    }
+
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new Error(payload?.message ?? `Airport report create failed with ${response.status}`);
   }

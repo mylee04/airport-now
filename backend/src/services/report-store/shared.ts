@@ -30,7 +30,7 @@ const STORAGE_ROOT_URL = process.env.VERCEL
 export const UPLOADS_DIR = new URL('uploads/', STORAGE_ROOT_URL);
 export const DATA_DIR = new URL('data/', STORAGE_ROOT_URL);
 export const REPORTS_STORE_FILE = new URL('reports.json', DATA_DIR);
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 export const CLEANUP_INTERVAL_MS = 60_000;
 
 export function isAirportCode(value: string): value is AirportCode {

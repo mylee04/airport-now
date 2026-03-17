@@ -57,7 +57,7 @@ export async function savePhoto(file: File): Promise<{ photoUrl: string; photoFi
   }
 
   if (file.size > MAX_PHOTO_BYTES) {
-    throw new Error('photo must be 5 MB or smaller');
+    throw new Error('photo must be 4 MB or smaller');
   }
 
   ensureStorageDirs();

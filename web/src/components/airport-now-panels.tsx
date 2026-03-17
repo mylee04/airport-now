@@ -44,6 +44,7 @@ import {
   type TrackerLink,
 } from '../lib/airport-now';
 import { resolveApiAssetUrl } from '../lib/airport-api';
+import { formatReportPhotoBytes, optimizeReportPhotoForUpload } from '../lib/report-photos';
 
 type HeroHeaderProps = {
   airports: AirportStatus[];
@@ -319,6 +320,8 @@ export function CommunityPanel({
   const [cameraState, setCameraState] = useState<'idle' | 'opening' | 'ready' | 'error'>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [reportPhotoPreviewUrl, setReportPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoPrepareMode, setPhotoPrepareMode] = useState<'idle' | 'processing' | 'error'>('idle');
+  const [photoPrepareMessage, setPhotoPrepareMessage] = useState<string | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const photoReports = reports.filter((report) => Boolean(report.photoUrl));
@@ -373,6 +376,39 @@ export function CommunityPanel({
     }
   };
 
+  const clearPreparedPhoto = () => {
+    setSelectedReportPhoto(null);
+    setPhotoPrepareMode('idle');
+    setPhotoPrepareMessage(null);
+  };
+
+  const prepareSelectedPhoto = async (file: File | null) => {
+    if (!file) {
+      clearPreparedPhoto();
+      return;
+    }
+
+    setPhotoPrepareMode('processing');
+    setPhotoPrepareMessage('Optimizing photo for upload...');
+
+    try {
+      const preparedPhoto = await optimizeReportPhotoForUpload(file);
+      setSelectedReportPhoto(preparedPhoto.file);
+      setPhotoPrepareMode('idle');
+      setPhotoPrepareMessage(
+        preparedPhoto.optimized
+          ? `Photo optimized to ${formatReportPhotoBytes(preparedPhoto.file.size)} for upload.`
+          : `Photo ready: ${formatReportPhotoBytes(preparedPhoto.file.size)}`,
+      );
+    } catch (error) {
+      setSelectedReportPhoto(null);
+      setPhotoPrepareMode('error');
+      setPhotoPrepareMessage(
+        error instanceof Error ? error.message : 'The photo could not be prepared for upload.',
+      );
+    }
+  };
+
   const capturePhoto = () => {
     const video = cameraVideoRef.current;
 
@@ -400,7 +436,7 @@ export function CommunityPanel({
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        setSelectedReportPhoto(
+        void prepareSelectedPhoto(
           new File([blob], `${selectedAirport.code.toLowerCase()}-checkpoint-${timestamp}.jpg`, {
             type: 'image/jpeg',
           }),
@@ -414,6 +450,8 @@ export function CommunityPanel({
 
   useEffect(() => {
     setCommunityView('auto');
+    setPhotoPrepareMode('idle');
+    setPhotoPrepareMessage(null);
   }, [selectedAirport.code]);
 
   useEffect(() => {
@@ -429,6 +467,12 @@ export function CommunityPanel({
       URL.revokeObjectURL(previewUrl);
     };
   }, [reportForm.photo]);
+
+  useEffect(() => {
+    if (!reportForm.photo && photoPrepareMode !== 'error') {
+      setPhotoPrepareMessage(null);
+    }
+  }, [photoPrepareMode, reportForm.photo]);
 
   useEffect(() => () => stopCameraStream(), []);
 
@@ -595,7 +639,7 @@ export function CommunityPanel({
               accept="image/*"
               capture="environment"
               onChange={(event) => {
-                setSelectedReportPhoto(event.target.files?.[0] ?? null);
+                void prepareSelectedPhoto(event.target.files?.[0] ?? null);
                 event.currentTarget.value = '';
               }}
             />
@@ -605,7 +649,7 @@ export function CommunityPanel({
               type="file"
               accept="image/*"
               onChange={(event) => {
-                setSelectedReportPhoto(event.target.files?.[0] ?? null);
+                void prepareSelectedPhoto(event.target.files?.[0] ?? null);
                 event.currentTarget.value = '';
               }}
             />
@@ -640,7 +684,7 @@ export function CommunityPanel({
                 This photo will post into the {selectedAirport.code} community feed and disappear after {REPORT_TTL_HOURS}{' '}
                 hours.
               </p>
-              <button type="button" className="report-clear-photo" onClick={() => setSelectedReportPhoto(null)}>
+              <button type="button" className="report-clear-photo" onClick={clearPreparedPhoto}>
                 Remove photo
               </button>
             </div>
@@ -659,12 +703,20 @@ export function CommunityPanel({
 
         <div className="report-submit-row">
           <span className="report-file-label">
-            {reportForm.photo
+            {photoPrepareMode === 'processing'
+              ? 'Optimizing photo for upload...'
+              : photoPrepareMessage
+                ? photoPrepareMessage
+                : reportForm.photo
               ? `Photo ready: ${reportForm.photo.name} · auto-deletes in ${REPORT_TTL_HOURS} hours`
               : `Photo is optional · posts auto-delete in ${REPORT_TTL_HOURS} hours`}
           </span>
-          <button className="primary-button flight-submit" type="submit">
-            {reportSubmitMode === 'submitting' ? 'Posting...' : 'Post Report'}
+          <button
+            className="primary-button flight-submit"
+            type="submit"
+            disabled={photoPrepareMode === 'processing' || reportSubmitMode === 'submitting'}
+          >
+            {photoPrepareMode === 'processing' ? 'Preparing photo...' : reportSubmitMode === 'submitting' ? 'Posting...' : 'Post Report'}
           </button>
         </div>
       </form>
@@ -672,6 +724,8 @@ export function CommunityPanel({
       {reportSubmitMessage ? (
         <p className={reportSubmitMode === 'error' ? 'error-banner' : 'success-banner'}>{reportSubmitMessage}</p>
       ) : null}
+
+      {photoPrepareMode === 'error' && photoPrepareMessage ? <p className="error-banner">{photoPrepareMessage}</p> : null}
 
       {reportsMode === 'error' ? <p className="error-banner">{reportsError}</p> : null}
 
