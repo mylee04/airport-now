@@ -275,9 +275,15 @@ function App() {
 
     try {
       await createAirportReport(formData);
-      await Promise.all([refresh(), reloadReports()]);
+      const [snapshotRefreshed, reportsRefreshed] = await Promise.all([refresh(), reloadReports()]);
       setReportSubmitMode('success');
-      setReportSubmitMessage('Report posted. The airport card and report list have been refreshed.');
+      setReportSubmitMessage(
+        snapshotRefreshed && reportsRefreshed
+          ? 'Report posted. The airport card and report list have been refreshed.'
+          : snapshotRefreshed || reportsRefreshed
+            ? 'Report posted. Part of the page refreshed, but one live panel is still catching up.'
+            : 'Report posted. The live panels did not refresh yet, so reload in a moment if this view looks stale.',
+      );
       setReportForm((current) => ({
         ...current,
         note: '',

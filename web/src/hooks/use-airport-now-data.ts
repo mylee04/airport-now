@@ -30,7 +30,7 @@ export function useAirportSnapshot(): {
   airports: AirportStatus[];
   mode: LoadMode;
   error: string | null;
-  refresh: (signal?: AbortSignal) => Promise<void>;
+  refresh: (signal?: AbortSignal) => Promise<boolean>;
 } {
   const [airports, setAirports] = useState<AirportStatus[]>(fallbackAirports);
   const [mode, setMode] = useState<LoadMode>('loading');
@@ -44,14 +44,16 @@ export function useAirportSnapshot(): {
           setMode('live');
           setError(null);
         });
+        return true;
       })
       .catch((requestError: unknown) => {
         if (signal?.aborted) {
-          return;
+          return false;
         }
 
         setError(getErrorMessage(requestError, 'Unable to load live airport data.'));
         setMode('fallback');
+        return false;
       });
   };
 
@@ -133,6 +135,7 @@ export function useFlightBoards(selectedCode: AirportCode): {
 
   useEffect(() => {
     const controller = new AbortController();
+    setFlightBoards(null);
     setFlightBoardsMode('loading');
     setFlightBoardsError(null);
 
@@ -152,6 +155,7 @@ export function useFlightBoards(selectedCode: AirportCode): {
           return;
         }
 
+        setFlightBoards(null);
         setFlightBoardsError(getErrorMessage(requestError, 'Unable to load airport flight boards.'));
         setFlightBoardsMode('error');
       });
@@ -209,7 +213,7 @@ export function useAirportReports(selectedCode: AirportCode): {
   reports: AirportReport[];
   reportsMode: ReportLoadMode;
   reportsError: string | null;
-  reloadReports: (signal?: AbortSignal) => Promise<void>;
+  reloadReports: (signal?: AbortSignal) => Promise<boolean>;
   setReports: Dispatch<SetStateAction<AirportReport[]>>;
   setReportsMode: Dispatch<SetStateAction<ReportLoadMode>>;
   setReportsError: Dispatch<SetStateAction<string | null>>;
@@ -228,19 +232,22 @@ export function useAirportReports(selectedCode: AirportCode): {
           setReports(payload.reports);
           setReportsMode('ready');
         });
+        return true;
       })
       .catch((requestError: unknown) => {
         if (signal?.aborted) {
-          return;
+          return false;
         }
 
         setReportsError(getErrorMessage(requestError, 'Unable to load community reports.'));
         setReportsMode('error');
+        return false;
       });
   };
 
   useEffect(() => {
     const controller = new AbortController();
+    setReports([]);
     void reloadReports(controller.signal);
     return () => controller.abort();
   }, [selectedCode]);

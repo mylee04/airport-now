@@ -69,6 +69,15 @@ let cache: SnapshotCache | null = null;
 let lastSuccessfulSnapshot: TrafficApiResponse | null = null;
 const focusedTrafficCache = new Map<AirportCode, SnapshotCache>();
 
+function buildEmptyTrafficSnapshot(generatedAt = new Date().toISOString()): TrafficApiResponse {
+  return {
+    generatedAt,
+    airborneCount: 0,
+    sampleCount: 0,
+    aircraft: [],
+  };
+}
+
 function toTrafficAircraft(state: OpenSkyState): TrafficAircraft | null {
   const id = state[0]?.trim();
   const longitude = state[5];
@@ -193,21 +202,9 @@ async function fetchAirplanesLiveSnapshot(): Promise<TrafficApiResponse> {
 
   for (let index = 0; index < AIRPLANES_LIVE_ZONES.length; index += 1) {
     const zone = AIRPLANES_LIVE_ZONES[index];
-    const response = await fetch(
+    const payload = await fetchAirplanesLiveResponse(
       `${AIRPLANES_LIVE_BASE_URL}/${zone.latitude}/${zone.longitude}/${zone.radiusNm}`,
-      {
-        headers: {
-          Accept: 'application/json, text/plain, */*',
-          'User-Agent': 'AirportNow/0.1 (+https://airport-now.local)',
-        },
-      },
     );
-
-    if (!response.ok) {
-      throw new Error(`Airplanes.live point feed returned ${response.status}`);
-    }
-
-    const payload = (await response.json()) as AirplanesLiveResponse;
     latestTimestamp = Math.max(latestTimestamp, payload.now ?? 0);
 
     for (const entry of payload.ac ?? []) {
@@ -293,21 +290,36 @@ export async function getTrafficSnapshot(): Promise<TrafficApiResponse> {
   try {
     return cacheSnapshot(await fetchOpenSkySnapshot(), now);
   } catch (openSkyError) {
-    if (lastSuccessfulSnapshot) {
+    try {
+      return cacheSnapshot(await fetchAirplanesLiveSnapshot(), now);
+    } catch (fallbackError) {
+      if (lastSuccessfulSnapshot) {
+        cache = {
+          expiresAt: now + TRAFFIC_CACHE_MS,
+          value: lastSuccessfulSnapshot,
+        };
+
+        return lastSuccessfulSnapshot;
+      }
+
+      const primaryMessage =
+        openSkyError instanceof Error ? openSkyError.message : 'OpenSky primary source failed';
+      const fallbackMessage =
+        fallbackError instanceof Error ? fallbackError.message : 'Airplanes.live fallback failed';
+      console.error('Traffic snapshot degraded to empty fallback:', {
+        primaryMessage,
+        fallbackMessage,
+      });
+
+      const emptySnapshot = buildEmptyTrafficSnapshot();
       cache = {
-        expiresAt: now + TRAFFIC_CACHE_MS,
-        value: lastSuccessfulSnapshot,
+        expiresAt: now + 5_000,
+        value: emptySnapshot,
       };
 
-      return lastSuccessfulSnapshot;
+      return emptySnapshot;
     }
-
-    const primaryMessage =
-      openSkyError instanceof Error ? openSkyError.message : 'OpenSky primary source failed';
-
-    throw new Error(primaryMessage);
   }
-
 }
 
 export async function getAirportTrafficSnapshot(airportCode: AirportCode): Promise<TrafficApiResponse> {

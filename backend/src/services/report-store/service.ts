@@ -24,6 +24,16 @@ import {
 let reports: AirportReport[] = [];
 let reportsChangedListener: (() => void) | null = null;
 let cleanupStarted = false;
+let reportStoreOperation: Promise<void> = Promise.resolve();
+
+function runWithReportStoreLock<T>(operation: () => Promise<T>): Promise<T> {
+  const nextOperation = reportStoreOperation.then(operation, operation);
+  reportStoreOperation = nextOperation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return nextOperation;
+}
 
 function emitReportsChanged(): void {
   reportsChangedListener?.();
@@ -77,7 +87,9 @@ function startCleanupLoop(): void {
 
   cleanupStarted = true;
   const timer = setInterval(() => {
-    void pruneExpiredReports().catch((error) => {
+    void runWithReportStoreLock(async () => {
+      await pruneExpiredReports();
+    }).catch((error) => {
       console.error('Airport report cleanup failed:', error);
     });
   }, CLEANUP_INTERVAL_MS);
@@ -86,9 +98,11 @@ function startCleanupLoop(): void {
 }
 
 export async function initializeReportStore(): Promise<void> {
-  reports = await loadReportsFromStorage();
-  await pruneExpiredReports(new Date(), false);
-  startCleanupLoop();
+  await runWithReportStoreLock(async () => {
+    reports = await loadReportsFromStorage();
+    await pruneExpiredReports(new Date(), false);
+    startCleanupLoop();
+  });
 }
 
 export function setReportStoreChangeListener(listener: (() => void) | null): void {
@@ -96,131 +110,137 @@ export function setReportStoreChangeListener(listener: (() => void) | null): voi
 }
 
 export async function listAirportReports(airportCode: AirportCode): Promise<AirportReportsApiResponse> {
-  await refreshReportsFromStorage();
-  await pruneExpiredReports();
+  return runWithReportStoreLock(async () => {
+    await refreshReportsFromStorage();
+    await pruneExpiredReports();
 
-  return {
-    generatedAt: new Date().toISOString(),
-    airportCode,
-    reports: sortReportsByCreatedAt(
-      reports
-        .filter((report) => report.airportCode === airportCode)
-        .map((report) => ({
-          ...report,
-          photoUrl: resolveStoredPhotoUrl(report.photoUrl),
-        })),
-    ),
-  };
+    return {
+      generatedAt: new Date().toISOString(),
+      airportCode,
+      reports: sortReportsByCreatedAt(
+        reports
+          .filter((report) => report.airportCode === airportCode)
+          .map((report) => ({
+            ...report,
+            photoUrl: resolveStoredPhotoUrl(report.photoUrl),
+          })),
+      ),
+    };
+  });
 }
 
 export async function createAirportReport(request: Request): Promise<AirportReport> {
-  await refreshReportsFromStorage();
-  await pruneExpiredReports();
+  return runWithReportStoreLock(async () => {
+    await refreshReportsFromStorage();
+    await pruneExpiredReports();
 
-  const formData = await request.formData();
-  const airportCodeValue = formData.get('airportCode');
-  const checkpointValue = formData.get('checkpoint');
-  const queueLengthValue = formData.get('queueLength');
-  const crowdLevelValue = formData.get('crowdLevel');
+    const formData = await request.formData();
+    const airportCodeValue = formData.get('airportCode');
+    const checkpointValue = formData.get('checkpoint');
+    const queueLengthValue = formData.get('queueLength');
+    const crowdLevelValue = formData.get('crowdLevel');
 
-  if (
-    typeof airportCodeValue !== 'string' ||
-    typeof checkpointValue !== 'string' ||
-    typeof queueLengthValue !== 'string' ||
-    typeof crowdLevelValue !== 'string'
-  ) {
-    throw new Error('airportCode, checkpoint, queueLength, and crowdLevel are required');
-  }
+    if (
+      typeof airportCodeValue !== 'string' ||
+      typeof checkpointValue !== 'string' ||
+      typeof queueLengthValue !== 'string' ||
+      typeof crowdLevelValue !== 'string'
+    ) {
+      throw new Error('airportCode, checkpoint, queueLength, and crowdLevel are required');
+    }
 
-  if (!isAirportCode(airportCodeValue.toUpperCase())) {
-    throw new Error('airportCode must match a launch airport');
-  }
+    if (!isAirportCode(airportCodeValue.toUpperCase())) {
+      throw new Error('airportCode must match a launch airport');
+    }
 
-  if (!isQueueLength(queueLengthValue) || !isCrowdLevel(crowdLevelValue)) {
-    throw new Error('queueLength or crowdLevel is invalid');
-  }
+    if (!isQueueLength(queueLengthValue) || !isCrowdLevel(crowdLevelValue)) {
+      throw new Error('queueLength or crowdLevel is invalid');
+    }
 
-  const checkpoint = sanitizeCheckpoint(checkpointValue);
-  if (!checkpoint) {
-    throw new Error('checkpoint is required');
-  }
+    const checkpoint = sanitizeCheckpoint(checkpointValue);
+    if (!checkpoint) {
+      throw new Error('checkpoint is required');
+    }
 
-  const noteValue = formData.get('note');
-  const note = typeof noteValue === 'string' ? sanitizeNote(noteValue) : null;
+    const noteValue = formData.get('note');
+    const note = typeof noteValue === 'string' ? sanitizeNote(noteValue) : null;
 
-  let photoUrl: string | null = null;
-  let photoFilename: string | null = null;
-  const photoValue = formData.get('photo');
+    let photoUrl: string | null = null;
+    let photoFilename: string | null = null;
+    const photoValue = formData.get('photo');
 
-  if (photoValue instanceof File && photoValue.size > 0) {
-    const savedPhoto = await savePhoto(photoValue);
-    photoUrl = savedPhoto.photoUrl;
-    photoFilename = savedPhoto.photoFilename;
-  }
+    if (photoValue instanceof File && photoValue.size > 0) {
+      const savedPhoto = await savePhoto(photoValue);
+      photoUrl = savedPhoto.photoUrl;
+      photoFilename = savedPhoto.photoFilename;
+    }
 
-  const createdAt = new Date().toISOString();
-  const report: AirportReport = {
-    id: crypto.randomUUID(),
-    airportCode: airportCodeValue.toUpperCase() as AirportCode,
-    checkpoint,
-    queueLength: queueLengthValue,
-    crowdLevel: crowdLevelValue,
-    note,
-    photoUrl,
-    photoFilename,
-    createdAt,
-    expiresAt: buildExpiryTimestamp(createdAt),
-  };
+    const createdAt = new Date().toISOString();
+    const report: AirportReport = {
+      id: crypto.randomUUID(),
+      airportCode: airportCodeValue.toUpperCase() as AirportCode,
+      checkpoint,
+      queueLength: queueLengthValue,
+      crowdLevel: crowdLevelValue,
+      note,
+      photoUrl,
+      photoFilename,
+      createdAt,
+      expiresAt: buildExpiryTimestamp(createdAt),
+    };
 
-  const nextReports = sortReportsByCreatedAt([report, ...reports]);
+    const nextReports = sortReportsByCreatedAt([report, ...reports]);
 
-  try {
-    reports = nextReports;
-    await persistReports(reports);
-  } catch (error) {
-    await deletePhotoAsset(photoUrl);
-    reports = reports.filter((existingReport) => existingReport.id !== report.id);
-    throw error;
-  }
+    try {
+      reports = nextReports;
+      await persistReports(reports);
+    } catch (error) {
+      await deletePhotoAsset(photoUrl);
+      reports = reports.filter((existingReport) => existingReport.id !== report.id);
+      throw error;
+    }
 
-  emitReportsChanged();
-  return report;
+    emitReportsChanged();
+    return report;
+  });
 }
 
 export async function getRecentReportSummaryByAirport(
   now = new Date(),
 ): Promise<Partial<Record<AirportCode, ReportSummary>>> {
-  await refreshReportsFromStorage();
-  await pruneExpiredReports(now);
-  const summaries: Partial<Record<AirportCode, ReportSummary>> = {};
+  return runWithReportStoreLock(async () => {
+    await refreshReportsFromStorage();
+    await pruneExpiredReports(now);
+    const summaries: Partial<Record<AirportCode, ReportSummary>> = {};
 
-  for (const report of reports) {
-    const summary = summaries[report.airportCode] ?? {
-      reportCount: 0,
-      photoCount: 0,
-      strongestQueueMinutes: 0,
-      busyReportCount: 0,
-      packedReportCount: 0,
-      latestNote: null,
-      latestCheckpoint: null,
-    };
+    for (const report of reports) {
+      const summary = summaries[report.airportCode] ?? {
+        reportCount: 0,
+        photoCount: 0,
+        strongestQueueMinutes: 0,
+        busyReportCount: 0,
+        packedReportCount: 0,
+        latestNote: null,
+        latestCheckpoint: null,
+      };
 
-    summary.reportCount += 1;
-    summary.photoCount += report.photoUrl ? 1 : 0;
-    summary.strongestQueueMinutes = Math.max(summary.strongestQueueMinutes, queueLengthToMinutes(report.queueLength));
-    summary.busyReportCount += report.crowdLevel === 'Busy' ? 1 : 0;
-    summary.packedReportCount += report.crowdLevel === 'Packed' ? 1 : 0;
+      summary.reportCount += 1;
+      summary.photoCount += report.photoUrl ? 1 : 0;
+      summary.strongestQueueMinutes = Math.max(summary.strongestQueueMinutes, queueLengthToMinutes(report.queueLength));
+      summary.busyReportCount += report.crowdLevel === 'Busy' ? 1 : 0;
+      summary.packedReportCount += report.crowdLevel === 'Packed' ? 1 : 0;
 
-    if (!summary.latestNote && report.note) {
-      summary.latestNote = report.note;
+      if (!summary.latestNote && report.note) {
+        summary.latestNote = report.note;
+      }
+
+      if (!summary.latestCheckpoint) {
+        summary.latestCheckpoint = report.checkpoint;
+      }
+
+      summaries[report.airportCode] = summary;
     }
 
-    if (!summary.latestCheckpoint) {
-      summary.latestCheckpoint = report.checkpoint;
-    }
-
-    summaries[report.airportCode] = summary;
-  }
-
-  return summaries;
+    return summaries;
+  });
 }
