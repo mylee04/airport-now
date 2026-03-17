@@ -1,0 +1,51 @@
+.report-file-input {
+  display: none;
+}
+
+.report-photo-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-photo-button {
+  min-height: 48px;
+  width: 100%;
+}
+
+.report-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.report-submit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.report-file-label {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.report-submit-row .flight-submit {
+  width: auto;
+  min-width: 188px;
+  justify-self: end;
+}
+
+.success-banner {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(134, 203, 146, 0.14);
+  border: 1px solid rgba(134, 203, 146, 0.22);
+  color: #d8f4dd;
+}

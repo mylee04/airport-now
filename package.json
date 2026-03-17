@@ -1,0 +1,14 @@
+{
+  "name": "airport-pulse",
+  "private": true,
+  "workspaces": [
+    "web",
+    "api"
+  ],
+  "scripts": {
+    "dev:web": "bun run --cwd web dev",
+    "dev:api": "bun run --cwd api dev",
+    "build:web": "bun run --cwd web build",
+    "build:api": "bun run --cwd api build"
+  }
+}

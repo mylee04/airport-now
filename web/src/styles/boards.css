@@ -1,0 +1,244 @@
+.concourse-board-panel {
+  display: grid;
+  gap: 18px;
+  max-width: 1280px;
+  margin: 0 auto 28px;
+  padding: 22px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(18, 15, 9, 0.96), rgba(8, 7, 4, 0.98)),
+    #090805;
+  border: 1px solid rgba(244, 201, 93, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 225, 149, 0.05),
+    0 26px 54px rgba(0, 0, 0, 0.22);
+}
+
+.concourse-board-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 16px;
+  align-items: end;
+}
+
+.concourse-board-head h3 {
+  margin: 0;
+  color: #ffecb2;
+  font-family:
+    "IBM Plex Mono",
+    "Space Mono",
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: clamp(1.3rem, 2.2vw, 2rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.concourse-board-copy {
+  margin: 0;
+  color: rgba(255, 226, 154, 0.72);
+  line-height: 1.7;
+}
+
+.concourse-board-marquee {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(255, 214, 126, 0.05);
+  border: 1px solid rgba(244, 201, 93, 0.12);
+}
+
+.concourse-board-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.concourse-board-meta span {
+  padding: 8px 10px;
+  border-radius: 999px;
+  color: rgba(255, 226, 154, 0.78);
+  background: rgba(255, 214, 126, 0.08);
+  border: 1px solid rgba(255, 214, 126, 0.08);
+  font-size: 0.82rem;
+}
+
+.concourse-wall {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.concourse-fids-panel {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(5, 5, 5, 0.72);
+  border: 1px solid rgba(244, 201, 93, 0.12);
+  overflow: hidden;
+}
+
+.concourse-fids-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.concourse-fids-head h4 {
+  margin: 0;
+  color: #ffd977;
+  font-family:
+    "IBM Plex Mono",
+    "Space Mono",
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.concourse-fids-head span {
+  color: rgba(255, 226, 154, 0.72);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.concourse-fids-table {
+  display: grid;
+  gap: 4px;
+  font-family:
+    "IBM Plex Mono",
+    "Space Mono",
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  overflow-x: auto;
+}
+
+.concourse-fids-row {
+  display: grid;
+  grid-template-columns: 52px 52px 78px minmax(140px, 1fr) 54px minmax(118px, 0.9fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 560px;
+}
+
+.concourse-fids-row-head {
+  padding: 0 8px 6px;
+  color: rgba(255, 214, 126, 0.66);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.concourse-fids-body {
+  display: grid;
+  gap: 4px;
+}
+
+.concourse-fids-row-body {
+  appearance: none;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-top: 1px solid rgba(76, 220, 255, 0.16);
+  background: transparent;
+  color: #edf3ff;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.concourse-fids-row-body:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.concourse-fids-row-selected {
+  background: rgba(255, 214, 126, 0.1);
+  box-shadow: inset 3px 0 0 #ffd977;
+}
+
+.concourse-fids-cell {
+  min-width: 0;
+  overflow: hidden;
+  color: #eff4ff;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.concourse-fids-cell-flight,
+.concourse-fids-cell-gate {
+  color: #d9f6ff;
+}
+
+.concourse-fids-cell-route {
+  color: #ffffff;
+}
+
+.concourse-fids-cell-remark {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.concourse-fids-cell-remark-default {
+  color: #fff3ca;
+}
+
+.concourse-fids-cell-remark-success {
+  color: #91f0a1;
+}
+
+.concourse-fids-cell-remark-warning {
+  color: #ffe067;
+}
+
+.concourse-fids-cell-remark-critical {
+  color: #ff7a8c;
+}
+
+.concourse-fids-cell-remark-muted {
+  color: #d1d9df;
+}
+
+.board-panel {
+  overflow: hidden;
+}
+
+.board-panel-toolbar {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.board-marquee {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(24, 19, 10, 0.96), rgba(8, 7, 4, 0.98)),
+    #090805;
+  border: 1px solid rgba(244, 201, 93, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 225, 149, 0.06),
+    0 28px 60px rgba(0, 0, 0, 0.24);
+}
