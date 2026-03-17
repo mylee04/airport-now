@@ -103,7 +103,7 @@ function buildRecommendation(status: AirportStatus): string {
     return `Current checkpoint pressure looks manageable at ${status.code}, but keep watching for airline updates.`;
   }
 
-  return `No live checkpoint feed is wired for ${status.code} yet. Use airport and airline alerts until more live data is available.`;
+  return `This airport does not publish a live checkpoint wait feed yet. Use airport and airline alerts until more live data is available.`;
 }
 
 function applyTravelPressureSignal(status: AirportStatus, generatedAt: string): AirportStatus {

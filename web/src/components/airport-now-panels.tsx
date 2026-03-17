@@ -250,22 +250,28 @@ export function HeroHeader({
 }
 
 export function SelectedAirportStrip({ selectedAirport, selectedCoverageTier }: SelectedAirportStripProps) {
+  const showCrowdLevel = selectedAirport.crowdLevel !== 'Unknown';
+  const showConfidence =
+    selectedAirport.waitTimeSource !== 'none' || selectedAirport.riskSource !== 'none' || selectedAirport.reports > 0;
+  const visibleSignals = selectedAirport.signals.filter((signal) => signal !== 'Seasonal travel');
+
   return (
     <section className="selected-airport-strip" aria-label={`${selectedAirport.code} summary`}>
       <div className="selected-airport-strip-head">
         <div>
-          <p className="panel-label">Selected airport</p>
           <div className="selected-airport-inline">
             <h2>{selectedAirport.code}</h2>
             <p>{selectedAirport.name}</p>
-            <span className={`pill pill-${selectedAirport.crowdLevel.toLowerCase()}`}>{selectedAirport.crowdLevel}</span>
+            {showCrowdLevel ? (
+              <span className={`pill pill-${selectedAirport.crowdLevel.toLowerCase()}`}>{selectedAirport.crowdLevel}</span>
+            ) : null}
           </div>
         </div>
 
         <div className="selected-airport-meta">
-          <span>Confidence {selectedAirport.confidence}</span>
+          {showConfidence ? <span>Confidence {selectedAirport.confidence}</span> : null}
           <span>Updated {formatRelativeTime(selectedAirport.updatedAt)}</span>
-          <span>{formatCoverageTierLabel(selectedCoverageTier)}</span>
+          {selectedCoverageTier !== 'limited' ? <span>{formatCoverageTierLabel(selectedCoverageTier)}</span> : null}
         </div>
       </div>
 
@@ -286,9 +292,9 @@ export function SelectedAirportStrip({ selectedAirport, selectedCoverageTier }: 
 
       <p className="selected-airport-note">{selectedAirport.note}</p>
 
-      {selectedAirport.signals.length > 0 ? (
+      {visibleSignals.length > 0 ? (
         <div className="source-list selected-airport-signals">
-          {selectedAirport.signals.map((signal) => (
+          {visibleSignals.map((signal) => (
             <span key={signal} className="source-chip source-chip-strong">
               {signal}
             </span>
@@ -365,7 +371,7 @@ export function CommunityPanel({
             )}
             {!hasStructuredCheckpointOptions ? (
               <small className="field-hint">
-                Structured checkpoint names are not wired here yet, so enter the checkpoint or terminal area yourself.
+                Structured checkpoint names are not available here yet, so enter the checkpoint or terminal area yourself.
               </small>
             ) : null}
           </label>
@@ -823,7 +829,7 @@ export function CheckpointDetailPanel({ selectedAirport, selectedCoverageTier }:
             </div>
           ))
         ) : (
-          <p className="empty-state">Detailed checkpoint data is not wired for this airport yet.</p>
+          <p className="empty-state">Detailed checkpoint data is not available for this airport yet.</p>
         )}
       </div>
 

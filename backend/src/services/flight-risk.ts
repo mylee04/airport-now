@@ -105,7 +105,7 @@ function buildDrivers(airport: AirportStatus, window: DepartureWindowProfile): s
   } else if (airport.riskSource === 'community') {
     drivers.push(`Recent traveler reports are the strongest live signal at ${airport.code} right now, so queue pressure is influencing this route more than FAA restrictions.`);
   } else {
-    drivers.push(`No active FAA disruption signal is currently wired for ${airport.code}, so this route risk leans more heavily on checkpoint pressure and departure timing.`);
+    drivers.push(`No active FAA disruption signal is currently showing for ${airport.code}, so this route risk leans more heavily on checkpoint pressure and departure timing.`);
   }
 
   if (airport.waitTimeSource === 'official') {

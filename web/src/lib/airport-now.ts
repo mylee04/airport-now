@@ -465,7 +465,7 @@ export function formatReportLifetime(createdAt: string, expiresAt: string): stri
 }
 
 export function formatRiskDisplay(value: number): string {
-  return value > 0 ? `${value}%` : 'No live signal';
+  return value > 0 ? `${value}%` : 'Not available';
 }
 
 export function formatWaitSourceLabel(source: AirportStatus['waitTimeSource']): string {
@@ -521,7 +521,7 @@ export function formatCoverageTierLabel(tier: AirportCoverageTier): string {
     return 'FAA advisory only';
   }
 
-  return 'Limited live data';
+  return 'No live wait feed';
 }
 
 export function checkpointTag(checkpoint: AirportCheckpoint): string {

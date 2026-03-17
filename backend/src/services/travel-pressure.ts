@@ -69,10 +69,10 @@ export function getTravelPressure(date: Date): TravelPressureSummary {
   if (isWithinWindow(date, springBreakStart, springBreakEnd)) {
     pushSignal(
       summary,
-      'Spring break window',
+      'Seasonal travel',
       { wait: 6, delay: 5, cancel: 1 },
-      'Spring break demand tends to push family-heavy departure banks into longer morning and afternoon queues.',
-      'A broad U.S. spring break window is active, so leisure demand may be higher than a normal school-week baseline.',
+      'Seasonal leisure travel can push morning and afternoon queues higher.',
+      'The current date falls in a broad seasonal leisure travel period, so passenger volume may run above a typical school-week baseline.',
     );
   }
 

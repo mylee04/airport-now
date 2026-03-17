@@ -179,7 +179,7 @@ export function buildSeedAirportStatuses(nowIso = new Date().toISOString()): Air
     updatedAt: nowIso,
     reports: 0,
     photos: 0,
-    note: 'No live checkpoint feed is wired for this airport yet.',
+    note: 'This airport does not publish a live checkpoint wait feed yet.',
     insight: 'Watching official airport wait feeds, FAA NAS status, and traveler reports for this airport.',
     recommendation: 'Use airline alerts and airport guidance until a live checkpoint source is available.',
     checkpoints: [],
