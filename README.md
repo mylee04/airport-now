@@ -4,7 +4,7 @@ Airport Now is a traveler-facing web app for checking one departure airport quic
 
 ## Live Website
 
-- Production: [https://airport-pulse.vercel.app](https://airport-pulse.vercel.app)
+- Production: [https://airport-now.vercel.app](https://airport-now.vercel.app)
 
 ## What The Product Does
 
