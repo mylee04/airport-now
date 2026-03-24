@@ -169,9 +169,9 @@ export async function handleAppRequest(request: Request): Promise<Response> {
   }
 
   if (url.pathname === '/api/reports/photos' && request.method === 'GET') {
-    const airportCode = url.searchParams.get('airport')?.toUpperCase();
+    const airportCodeParam = url.searchParams.get('airport')?.toUpperCase();
 
-    if (airportCode && !isAirportCode(airportCode)) {
+    if (airportCodeParam && !isAirportCode(airportCodeParam)) {
       return json(
         {
           error: 'invalid_query',
@@ -181,6 +181,7 @@ export async function handleAppRequest(request: Request): Promise<Response> {
       );
     }
 
+    const airportCode = airportCodeParam && isAirportCode(airportCodeParam) ? airportCodeParam : undefined;
     return json(await listCommunityPhotoWallReports(airportCode));
   }
 

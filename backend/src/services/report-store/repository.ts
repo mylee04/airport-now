@@ -94,7 +94,7 @@ function persistReportsToDisk(reports: AirportReport[]): void {
   ensureStorageDirs();
 
   const payload: PersistedReportsFile = {
-    version: 1,
+    version: 2,
     reports: sortReportsByCreatedAt(reports),
   };
 
@@ -108,7 +108,7 @@ export async function persistReports(reports: AirportReport[]): Promise<void> {
   }
 
   const payload: PersistedReportsFile = {
-    version: 1,
+    version: 2,
     reports: sortReportsByCreatedAt(reports),
   };
 
