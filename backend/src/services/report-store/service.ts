@@ -11,7 +11,8 @@ import {
 import {
   CLEANUP_INTERVAL_MS,
   ReportSummary,
-  buildExpiryTimestamp,
+  buildPhotoExpiryTimestamp,
+  buildReportExpiryTimestamp,
   isAirportCode,
   isCrowdLevel,
   isQueueLength,
@@ -51,25 +52,53 @@ function isExpiredReport(report: AirportReport, now = new Date()): boolean {
   return new Date(report.expiresAt).getTime() <= now.getTime();
 }
 
-async function pruneExpiredReports(now = new Date(), shouldEmit = true): Promise<boolean> {
-  const activeReports: AirportReport[] = [];
-  const expiredReports: AirportReport[] = [];
-
-  for (const report of reports) {
-    if (isExpiredReport(report, now)) {
-      expiredReports.push(report);
-    } else {
-      activeReports.push(report);
-    }
+function isExpiredPhoto(report: AirportReport, now = new Date()): boolean {
+  if (!report.photoUrl || !report.photoExpiresAt) {
+    return true;
   }
 
-  if (expiredReports.length === 0) {
+  return new Date(report.photoExpiresAt).getTime() <= now.getTime();
+}
+
+async function pruneExpiredReports(now = new Date(), shouldEmit = true): Promise<boolean> {
+  const activeReports: AirportReport[] = [];
+  const expiredPhotoUrls = new Set<string>();
+  let changed = false;
+
+  for (const report of reports) {
+    const reportExpired = isExpiredReport(report, now);
+    const photoExpired = isExpiredPhoto(report, now);
+
+    if (reportExpired && (!report.photoUrl || photoExpired)) {
+      changed = true;
+      if (report.photoUrl) {
+        expiredPhotoUrls.add(report.photoUrl);
+      }
+      continue;
+    }
+
+    if (report.photoUrl && photoExpired) {
+      changed = true;
+      expiredPhotoUrls.add(report.photoUrl);
+      activeReports.push({
+        ...report,
+        photoUrl: null,
+        photoFilename: null,
+        photoExpiresAt: null,
+      });
+      continue;
+    }
+
+    activeReports.push(report);
+  }
+
+  if (!changed) {
     return false;
   }
 
   reports = sortReportsByCreatedAt(activeReports);
 
-  await Promise.all(expiredReports.map((report) => deletePhotoAsset(report.photoUrl)));
+  await Promise.all([...expiredPhotoUrls].map((photoUrl) => deletePhotoAsset(photoUrl)));
 
   await persistReports(reports);
 
@@ -119,7 +148,7 @@ export async function listAirportReports(airportCode: AirportCode): Promise<Airp
       airportCode,
       reports: sortReportsByCreatedAt(
         reports
-          .filter((report) => report.airportCode === airportCode)
+          .filter((report) => report.airportCode === airportCode && !isExpiredReport(report))
           .map((report) => ({
             ...report,
             photoUrl: resolveStoredPhotoUrl(report.photoUrl),
@@ -129,7 +158,7 @@ export async function listAirportReports(airportCode: AirportCode): Promise<Airp
   });
 }
 
-export async function listCommunityPhotoWallReports(): Promise<CommunityPhotoWallApiResponse> {
+export async function listCommunityPhotoWallReports(airportCode?: AirportCode): Promise<CommunityPhotoWallApiResponse> {
   return runWithReportStoreLock(async () => {
     await refreshReportsFromStorage();
     await pruneExpiredReports();
@@ -138,7 +167,8 @@ export async function listCommunityPhotoWallReports(): Promise<CommunityPhotoWal
       generatedAt: new Date().toISOString(),
       reports: sortReportsByCreatedAt(
         reports
-          .filter((report) => Boolean(report.photoUrl))
+          .filter((report) => Boolean(report.photoUrl) && !isExpiredPhoto(report))
+          .filter((report) => !airportCode || report.airportCode === airportCode)
           .map((report) => ({
             ...report,
             photoUrl: resolveStoredPhotoUrl(report.photoUrl),
@@ -205,7 +235,8 @@ export async function createAirportReport(request: Request): Promise<AirportRepo
       photoUrl,
       photoFilename,
       createdAt,
-      expiresAt: buildExpiryTimestamp(createdAt),
+      expiresAt: buildReportExpiryTimestamp(createdAt),
+      photoExpiresAt: photoUrl ? buildPhotoExpiryTimestamp(createdAt) : null,
     };
 
     const nextReports = sortReportsByCreatedAt([report, ...reports]);
@@ -233,6 +264,10 @@ export async function getRecentReportSummaryByAirport(
     const summaries: Partial<Record<AirportCode, ReportSummary>> = {};
 
     for (const report of reports) {
+      if (isExpiredReport(report, now)) {
+        continue;
+      }
+
       const summary = summaries[report.airportCode] ?? {
         reportCount: 0,
         photoCount: 0,
@@ -244,7 +279,7 @@ export async function getRecentReportSummaryByAirport(
       };
 
       summary.reportCount += 1;
-      summary.photoCount += report.photoUrl ? 1 : 0;
+      summary.photoCount += report.photoUrl && !isExpiredPhoto(report, now) ? 1 : 0;
       summary.strongestQueueMinutes = Math.max(summary.strongestQueueMinutes, queueLengthToMinutes(report.queueLength));
       summary.busyReportCount += report.crowdLevel === 'Busy' ? 1 : 0;
       summary.packedReportCount += report.crowdLevel === 'Packed' ? 1 : 0;

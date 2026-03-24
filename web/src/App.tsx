@@ -100,6 +100,12 @@ function App() {
     photoWallError,
     reloadPhotoWall,
   } = useCommunityPhotoWall();
+  const {
+    photoReports: selectedAirportPhotoReports,
+    photoWallMode: selectedAirportPhotoWallMode,
+    photoWallError: selectedAirportPhotoWallError,
+    reloadPhotoWall: reloadSelectedAirportPhotoWall,
+  } = useCommunityPhotoWall(selectedCode);
 
   const selectedAirport = useMemo(() => findAirportByCode(airports, selectedCode), [airports, selectedCode]);
   const selectableAirports = useMemo(
@@ -178,9 +184,9 @@ function App() {
     () =>
       buildStatusMetrics(selectedAirport, selectedCoverageTier, selectedAirportTrafficSummary, {
         reports: reports.length,
-        photos: reports.filter((report) => Boolean(report.photoUrl)).length,
+        photos: selectedAirportPhotoReports.length,
       }),
-    [reports, selectedAirport, selectedCoverageTier, selectedAirportTrafficSummary],
+    [reports, selectedAirport, selectedAirportPhotoReports.length, selectedCoverageTier, selectedAirportTrafficSummary],
   );
   const routeLabel = buildRouteLabel(flightRisk, flightForm);
 
@@ -289,13 +295,19 @@ function App() {
 
     try {
       await createAirportReport(formData);
-      const [snapshotRefreshed, reportsRefreshed] = await Promise.all([refresh(), reloadReports(), reloadPhotoWall()]);
+      const refreshResults = await Promise.all([
+        refresh(),
+        reloadReports(),
+        reloadSelectedAirportPhotoWall(),
+        reloadPhotoWall(),
+      ]);
+      const refreshedCount = refreshResults.filter(Boolean).length;
       setReportSubmitMode('success');
       setReportSubmitMessage(
-        snapshotRefreshed && reportsRefreshed
-          ? 'Report posted. The airport card and report list have been refreshed.'
-          : snapshotRefreshed || reportsRefreshed
-            ? 'Report posted. Part of the page refreshed, but one live panel is still catching up.'
+        refreshedCount === refreshResults.length
+          ? 'Report posted. The airport card, report feed, and photo walls have been refreshed.'
+          : refreshedCount > 0
+            ? 'Report posted. Most live panels refreshed, but one panel is still catching up.'
             : 'Report posted. The live panels did not refresh yet, so reload in a moment if this view looks stale.',
       );
       setReportForm((current) => ({
@@ -430,6 +442,9 @@ function App() {
         reportsMode={reportsMode}
         reportsError={reportsError}
         reports={reports}
+        photoReports={selectedAirportPhotoReports}
+        photoWallMode={selectedAirportPhotoWallMode}
+        photoWallError={selectedAirportPhotoWallError}
         reportCameraInputRef={reportCameraInputRef}
         reportUploadInputRef={reportUploadInputRef}
         setSelectedReportPhoto={setSelectedReportPhoto}

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import type { AirportCode, AirportStatus } from '../../../shared/airport-status';
 import {
+  PHOTO_TTL_DAYS,
   REPORT_CROWD_LEVELS,
   REPORT_QUEUE_LENGTHS,
-  REPORT_TTL_HOURS,
+  REPORT_TTL_DAYS,
   type AirportReport,
   type ReportCrowdLevel,
   type ReportQueueLength,
@@ -21,6 +22,7 @@ import {
   formatDenseBoardRoute,
   formatDenseBoardTime,
   formatDistanceNm,
+  formatPhotoLifetime,
   formatRelativeTime,
   formatReportLifetime,
   formatRiskDisplay,
@@ -78,6 +80,9 @@ type CommunityPanelProps = {
   reportsMode: ReportLoadMode;
   reportsError: string | null;
   reports: AirportReport[];
+  photoReports: AirportReport[];
+  photoWallMode: ReportLoadMode;
+  photoWallError: string | null;
   reportCameraInputRef: RefObject<HTMLInputElement | null>;
   reportUploadInputRef: RefObject<HTMLInputElement | null>;
   setSelectedReportPhoto: (photo: File | null) => void;
@@ -189,7 +194,7 @@ function CommunityPhotoWallPreview({
         <div className="community-photo-wall-meta">
           <span>{photoReports.length} photos</span>
           <span>{activeAirportCount} airports</span>
-          <span>Rolling {REPORT_TTL_HOURS}-hour window</span>
+          <span>Rolling {PHOTO_TTL_DAYS}-day photo window</span>
         </div>
       </div>
 
@@ -239,6 +244,7 @@ function CommunityPhotoWallPreview({
                   <div className="photo-wall-copy">
                     <strong>{report.checkpoint}</strong>
                     <span>Open {report.airportCode} feed</span>
+                    <span>{formatPhotoLifetime(report.createdAt, report.photoExpiresAt)}</span>
                   </div>
                 </div>
               </button>
@@ -250,7 +256,7 @@ function CommunityPhotoWallPreview({
       ) : (
         <p className="empty-state">
           No checkpoint photos have been posted across the network yet. The first traveler photo will stay here for{' '}
-          {REPORT_TTL_HOURS} hours.
+          {PHOTO_TTL_DAYS} days.
         </p>
       )}
     </section>
@@ -311,6 +317,9 @@ export function HeroHeader({
             <div className="hero-actions">
               <a className="primary-button" href="#airport-picker">
                 Choose Airport
+              </a>
+              <a className="secondary-button" href="#community-reports">
+                Post Photo / Report
               </a>
               <a className="secondary-button" href="#checkpoint-detail">
                 Read Checkpoints
@@ -481,6 +490,9 @@ export function CommunityPanel({
   reportsMode,
   reportsError,
   reports,
+  photoReports,
+  photoWallMode,
+  photoWallError,
   reportCameraInputRef,
   reportUploadInputRef,
   setSelectedReportPhoto,
@@ -495,7 +507,7 @@ export function CommunityPanel({
   const [photoPrepareMessage, setPhotoPrepareMessage] = useState<string | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
-  const photoReports = reports.filter((report) => Boolean(report.photoUrl));
+  const checkpointFieldRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
   const resolvedCommunityView = communityView === 'auto' ? (photoReports.length > 0 ? 'photos' : 'feed') : communityView;
 
   const stopCameraStream = () => {
@@ -619,6 +631,31 @@ export function CommunityPanel({
     );
   };
 
+  const focusContributionForm = () => {
+    const target = checkpointFieldRef.current;
+
+    if (!target) {
+      document.getElementById('community-report-form')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+      return;
+    }
+
+    target.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+
+    window.requestAnimationFrame(() => {
+      target.focus({ preventScroll: true });
+    });
+  };
+
+  const setCheckpointFieldRef = (node: HTMLInputElement | HTMLSelectElement | null) => {
+    checkpointFieldRef.current = node;
+  };
+
   useEffect(() => {
     setCommunityView('auto');
     setPhotoPrepareMode('idle');
@@ -651,8 +688,8 @@ export function CommunityPanel({
     <section className="info-panel community-priority-panel" id="community-reports">
       <div className="community-priority-head">
         <div>
-          <p className="section-kicker">Community layer</p>
-          <h2>Post what the line looks like right now</h2>
+          <p className="section-kicker">Live contribution</p>
+          <h2>Share what the line looks like right now</h2>
         </div>
         <div className="community-priority-meta">
           <span>{selectedAirport.code}</span>
@@ -662,9 +699,42 @@ export function CommunityPanel({
       </div>
 
       <p className="detail-insight">
-        Reports and photos are stored on the Airport Now API for this airport feed, shown to other travelers here, and
-        auto-delete after {REPORT_TTL_HOURS} hours.
+        Help the next traveler in {selectedAirport.code}. Your photo or quick report shows up in the live feed right
+        away. Reports stay live for {REPORT_TTL_DAYS} days, and photos stay visible for {PHOTO_TTL_DAYS} days.
       </p>
+
+      <div className="community-contribute-banner" id="community-contribute">
+        <div className="community-contribute-head">
+          <div>
+            <p className="panel-label">Fastest way to help</p>
+            <h3>Standing in this line right now?</h3>
+          </div>
+          <p className="community-contribute-note">
+            A checkpoint photo is the fastest signal. If you do not want to take one, a one-line report still helps.
+          </p>
+        </div>
+        <div className="community-contribute-actions">
+          <button
+            type="button"
+            className="primary-button report-photo-button"
+            onClick={() => {
+              void openCamera();
+            }}
+          >
+            Take checkpoint photo
+          </button>
+          <button
+            type="button"
+            className="secondary-button report-photo-button"
+            onClick={() => reportUploadInputRef.current?.click()}
+          >
+            Upload photo
+          </button>
+          <button type="button" className="secondary-button report-photo-button" onClick={focusContributionForm}>
+            Write quick report
+          </button>
+        </div>
+      </div>
 
       {cameraOpen ? (
         <div className="camera-modal-backdrop" role="presentation" onClick={closeCamera}>
@@ -723,12 +793,13 @@ export function CommunityPanel({
         </div>
       ) : null}
 
-      <form className="report-form" onSubmit={onSubmit}>
+      <form className="report-form" id="community-report-form" onSubmit={onSubmit}>
         <div className="report-form-row">
           <label className="flight-field">
             <span>{hasStructuredCheckpointOptions ? 'Checkpoint' : 'Where are you standing?'}</span>
             {hasStructuredCheckpointOptions ? (
               <select
+                ref={setCheckpointFieldRef}
                 className="field-control"
                 value={reportForm.checkpoint}
                 onChange={(event) =>
@@ -743,6 +814,7 @@ export function CommunityPanel({
               </select>
             ) : (
               <input
+                ref={setCheckpointFieldRef}
                 className="field-control"
                 type="text"
                 value={reportForm.checkpoint}
@@ -802,7 +874,7 @@ export function CommunityPanel({
           </label>
 
           <div className="flight-field">
-            <span>Optional photo</span>
+            <span>Add a photo (fastest signal)</span>
             <input
               ref={reportCameraInputRef}
               className="report-file-input"
@@ -832,7 +904,7 @@ export function CommunityPanel({
                   void openCamera();
                 }}
               >
-                Take photo
+                Take live photo
               </button>
               <button
                 type="button"
@@ -842,7 +914,10 @@ export function CommunityPanel({
                 Upload photo
               </button>
             </div>
-            <small className="field-hint">Take photo opens the live camera. Upload photo keeps the file picker.</small>
+            <small className="field-hint">
+              A photo is the quickest way for other travelers to understand the line. Upload also works if you already
+              snapped one.
+            </small>
           </div>
         </div>
 
@@ -852,8 +927,8 @@ export function CommunityPanel({
             <div className="report-selected-photo-copy">
               <strong>{reportForm.photo?.name ?? 'Photo ready'}</strong>
               <p>
-                This photo will post into the {selectedAirport.code} community feed and disappear after {REPORT_TTL_HOURS}{' '}
-                hours.
+                This photo will show up in the {selectedAirport.code} live feed for {REPORT_TTL_DAYS} days and stay on
+                the photo wall for {PHOTO_TTL_DAYS} days.
               </p>
               <button type="button" className="report-clear-photo" onClick={clearPreparedPhoto}>
                 Remove photo
@@ -879,15 +954,19 @@ export function CommunityPanel({
               : photoPrepareMessage
                 ? photoPrepareMessage
                 : reportForm.photo
-              ? `Photo ready: ${reportForm.photo.name} · auto-deletes in ${REPORT_TTL_HOURS} hours`
-              : `Photo is optional · posts auto-delete in ${REPORT_TTL_HOURS} hours`}
+              ? `Photo ready: ${reportForm.photo.name} · report lives ${REPORT_TTL_DAYS} days, photo lives ${PHOTO_TTL_DAYS} days`
+              : `Photo is optional · reports stay ${REPORT_TTL_DAYS} days, photos stay ${PHOTO_TTL_DAYS} days`}
           </span>
           <button
             className="primary-button flight-submit"
             type="submit"
             disabled={photoPrepareMode === 'processing' || reportSubmitMode === 'submitting'}
           >
-            {photoPrepareMode === 'processing' ? 'Preparing photo...' : reportSubmitMode === 'submitting' ? 'Posting...' : 'Post Report'}
+            {photoPrepareMode === 'processing'
+              ? 'Preparing photo...'
+              : reportSubmitMode === 'submitting'
+                ? 'Sharing...'
+                : 'Share live report'}
           </button>
         </div>
       </form>
@@ -899,6 +978,7 @@ export function CommunityPanel({
       {photoPrepareMode === 'error' && photoPrepareMessage ? <p className="error-banner">{photoPrepareMessage}</p> : null}
 
       {reportsMode === 'error' ? <p className="error-banner">{reportsError}</p> : null}
+      {photoWallMode === 'error' ? <p className="error-banner">{photoWallError}</p> : null}
 
       <div className="community-view-toggle" role="tablist" aria-label={`${selectedAirport.code} community views`}>
         <button
@@ -943,7 +1023,7 @@ export function CommunityPanel({
                   </div>
                   <div className="photo-wall-copy">
                     <strong>{report.checkpoint}</strong>
-                    <span>{formatReportLifetime(report.createdAt, report.expiresAt)}</span>
+                    <span>{formatPhotoLifetime(report.createdAt, report.photoExpiresAt)}</span>
                   </div>
                 </article>
               );
@@ -951,7 +1031,7 @@ export function CommunityPanel({
           ) : (
             <p className="empty-state">
               No checkpoint photos have been posted for {selectedAirport.code} yet. The first photo will appear here for{' '}
-              {REPORT_TTL_HOURS} hours.
+              {PHOTO_TTL_DAYS} days.
             </p>
           )}
         </div>
@@ -989,8 +1069,8 @@ export function CommunityPanel({
             })
           ) : (
             <p className="empty-state">
-              No traveler reports yet for {selectedAirport.code}. The first post will stay live here for {REPORT_TTL_HOURS}{' '}
-              hours, then auto-delete.
+              No traveler reports yet for {selectedAirport.code}. The first post will stay live here for {REPORT_TTL_DAYS}{' '}
+              days.
             </p>
           )}
         </div>

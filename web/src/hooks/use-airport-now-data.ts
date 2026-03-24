@@ -264,7 +264,7 @@ export function useAirportReports(selectedCode: AirportCode): {
   };
 }
 
-export function useCommunityPhotoWall(): {
+export function useCommunityPhotoWall(selectedCode?: AirportCode): {
   photoReports: AirportReport[];
   photoWallMode: ReportLoadMode;
   photoWallError: string | null;
@@ -278,7 +278,7 @@ export function useCommunityPhotoWall(): {
     setPhotoWallMode('loading');
     setPhotoWallError(null);
 
-    return fetchCommunityPhotoWall(signal)
+    return fetchCommunityPhotoWall(selectedCode, signal)
       .then((payload) => {
         startTransition(() => {
           setPhotoReports(payload.reports);
@@ -299,9 +299,10 @@ export function useCommunityPhotoWall(): {
 
   useEffect(() => {
     const controller = new AbortController();
+    setPhotoReports([]);
     void reloadPhotoWall(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [selectedCode]);
 
   return {
     photoReports,

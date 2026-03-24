@@ -104,8 +104,20 @@ export async function fetchAirportReports(
   return response.json() as Promise<AirportReportsApiResponse>;
 }
 
-export async function fetchCommunityPhotoWall(signal?: AbortSignal): Promise<CommunityPhotoWallApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/reports/photos`, { signal });
+export async function fetchCommunityPhotoWall(
+  airportCode?: AirportCode,
+  signal?: AbortSignal,
+): Promise<CommunityPhotoWallApiResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (airportCode) {
+    searchParams.set('airport', airportCode);
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/reports/photos${searchParams.size > 0 ? `?${searchParams.toString()}` : ''}`,
+    { signal },
+  );
 
   if (!response.ok) {
     throw new Error(`Community photo wall request failed with ${response.status}`);

@@ -461,7 +461,15 @@ export function formatRelativeTime(isoDate: string): string {
 }
 
 export function formatReportLifetime(createdAt: string, expiresAt: string): string {
-  return `${formatRelativeTime(createdAt)} · auto-deletes ${formatRelativeTime(expiresAt)}`;
+  return `${formatRelativeTime(createdAt)} · report ends ${formatRelativeTime(expiresAt)}`;
+}
+
+export function formatPhotoLifetime(createdAt: string, expiresAt: string | null): string {
+  if (!expiresAt) {
+    return formatRelativeTime(createdAt);
+  }
+
+  return `${formatRelativeTime(createdAt)} · photo ends ${formatRelativeTime(expiresAt)}`;
 }
 
 export function formatRiskDisplay(value: number): string {

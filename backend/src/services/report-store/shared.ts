@@ -1,5 +1,6 @@
 import { AIRPORT_CODES, type AirportCode } from '../../../../shared/airport-status';
 import {
+  PHOTO_TTL_MS,
   REPORT_CROWD_LEVELS,
   REPORT_QUEUE_LENGTHS,
   REPORT_TTL_MS,
@@ -19,7 +20,7 @@ export type ReportSummary = {
 };
 
 export type PersistedReportsFile = {
-  version: 1;
+  version: 2;
   reports: AirportReport[];
 };
 
@@ -83,8 +84,12 @@ export function sortReportsByCreatedAt(items: AirportReport[]): AirportReport[] 
   return [...items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
-export function buildExpiryTimestamp(createdAt: string): string {
+export function buildReportExpiryTimestamp(createdAt: string): string {
   return new Date(new Date(createdAt).getTime() + REPORT_TTL_MS).toISOString();
+}
+
+export function buildPhotoExpiryTimestamp(createdAt: string): string {
+  return new Date(new Date(createdAt).getTime() + PHOTO_TTL_MS).toISOString();
 }
 
 export function normalizeStoredReport(value: unknown): AirportReport | null {
@@ -92,7 +97,9 @@ export function normalizeStoredReport(value: unknown): AirportReport | null {
     return null;
   }
 
-  const candidate = value as Partial<AirportReport>;
+  const candidate = value as Partial<AirportReport> & {
+    photoExpiresAt?: unknown;
+  };
 
   if (
     typeof candidate.id !== 'string' ||
@@ -113,10 +120,19 @@ export function normalizeStoredReport(value: unknown): AirportReport | null {
     return null;
   }
 
+  const hasSeparateExpiryFields = Object.prototype.hasOwnProperty.call(candidate, 'photoExpiresAt');
   const normalizedExpiresAt =
-    typeof candidate.expiresAt === 'string' && Number.isFinite(new Date(candidate.expiresAt).getTime())
+    hasSeparateExpiryFields && typeof candidate.expiresAt === 'string' && Number.isFinite(new Date(candidate.expiresAt).getTime())
       ? candidate.expiresAt
-      : buildExpiryTimestamp(candidate.createdAt);
+      : buildReportExpiryTimestamp(candidate.createdAt);
+  const normalizedPhotoExpiresAt =
+    typeof candidate.photoUrl === 'string'
+      ? hasSeparateExpiryFields &&
+        typeof candidate.photoExpiresAt === 'string' &&
+        Number.isFinite(new Date(candidate.photoExpiresAt).getTime())
+          ? candidate.photoExpiresAt
+          : buildPhotoExpiryTimestamp(candidate.createdAt)
+      : null;
 
   return {
     id: candidate.id,
@@ -129,6 +145,7 @@ export function normalizeStoredReport(value: unknown): AirportReport | null {
     photoFilename: typeof candidate.photoFilename === 'string' ? candidate.photoFilename : null,
     createdAt: candidate.createdAt,
     expiresAt: normalizedExpiresAt,
+    photoExpiresAt: normalizedPhotoExpiresAt,
   };
 }
 

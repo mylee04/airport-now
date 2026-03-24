@@ -488,6 +488,45 @@ a {
   font-size: 0.78rem;
 }
 
+.community-contribute-banner {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(247, 104, 66, 0.18);
+  background:
+    linear-gradient(180deg, rgba(247, 104, 66, 0.16), rgba(98, 171, 207, 0.08)),
+    rgba(12, 22, 32, 0.88);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.community-contribute-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.community-contribute-head h3 {
+  margin: 4px 0 0;
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  letter-spacing: -0.03em;
+}
+
+.community-contribute-note {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.community-contribute-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .eyebrow,
 .section-kicker,
 .panel-label {
@@ -2599,6 +2638,10 @@ a {
     justify-content: flex-start;
   }
 
+  .community-contribute-head {
+    flex-direction: column;
+  }
+
   .airspace-panel-summary {
     flex-direction: column;
     align-items: flex-start;
@@ -2786,6 +2829,7 @@ a {
   .focus-panel-head,
   .focused-board-topline,
   .flight-summary-head,
+  .community-contribute-actions,
   .report-submit-row,
   .report-card-head,
   .checkpoint-row,

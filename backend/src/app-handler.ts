@@ -169,7 +169,19 @@ export async function handleAppRequest(request: Request): Promise<Response> {
   }
 
   if (url.pathname === '/api/reports/photos' && request.method === 'GET') {
-    return json(await listCommunityPhotoWallReports());
+    const airportCode = url.searchParams.get('airport')?.toUpperCase();
+
+    if (airportCode && !isAirportCode(airportCode)) {
+      return json(
+        {
+          error: 'invalid_query',
+          message: 'airport must be one of the launch airport codes',
+        },
+        400,
+      );
+    }
+
+    return json(await listCommunityPhotoWallReports(airportCode));
   }
 
   if (url.pathname === '/api/reports' && request.method === 'POST') {
